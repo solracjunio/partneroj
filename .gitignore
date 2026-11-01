@@ -1,0 +1,44 @@
+# Dependências e builds
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.turbo/
+.vite/
+
+# Variáveis de ambiente e segredos (nunca no git)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dados reais dos sócios, uploads e backups
+data/
+uploads/
+backups/
+*.dump
+*.sql.gz
+
+# Documentos pessoais (o plano completo fica fora deste repositório)
+docs/socios.md
+
+# Ambiente local
+.devbox/
+.claude/settings.local.json
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Testes E2E
+playwright-report/
+test-results/
+
+# Logs e lixo de sistema
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+desktop.ini
