@@ -22,7 +22,7 @@ TypeScript · NestJS · PostgreSQL + Drizzle · pg-boss · React + Vite (PWA) ·
 
 ## Technical decisions
 
-Every significant decision is recorded as an ADR in [`docs/adr/`](docs/adr/).
+Every significant decision is recorded as an ADR in [`docs/adr/`](docs/adr/). ADRs and docs are written in Portuguese, the code in English ([ADR 0001](docs/adr/0001-idioma-do-projeto.md)).
 
 ## Disclaimer
 
