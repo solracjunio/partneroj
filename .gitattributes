@@ -1,0 +1,14 @@
+# Todo texto é guardado e extraído com fim de linha LF,
+# mesmo editado por um programa do Windows (a pasta está num disco NTFS).
+* text=auto eol=lf
+
+# Scripts de shell quebram com CRLF dentro dos containers
+*.sh text eol=lf
+
+# Binários
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.pdf binary
