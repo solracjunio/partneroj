@@ -24,3 +24,4 @@ Cada arquivo registra uma decisão técnica: o contexto, as opções considerada
 | Nº | Título | Status |
 |----|--------|--------|
 | [0001](0001-idioma-do-projeto.md) | Idioma do projeto | aceito |
+| [0002](0002-cotas-como-pesos-e-maior-resto.md) | Cotas como pesos e rateio pelo maior resto | aceito |
