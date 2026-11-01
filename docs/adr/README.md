@@ -21,4 +21,6 @@ Cada arquivo registra uma decisão técnica: o contexto, as opções considerada
 
 ## Índice
 
-_Nenhum ADR ainda._
+| Nº | Título | Status |
+|----|--------|--------|
+| [0001](0001-idioma-do-projeto.md) | Idioma do projeto | aceito |
