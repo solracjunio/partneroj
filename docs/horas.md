@@ -11,12 +11,13 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 01/11/2026 | 0 | 1,0 h | Conversa com a família por WhatsApp (roteiro feito com IA) | Sim |
 | 01/11/2026 | 0 | 0,5 h* | Roteiro da conversa e revisão das respostas da família | Sim |
 | 01/11/2026 | 0 | 1,0 h* | ADR 0002 (pesos e maior resto), escrito em conversa com a IA | Sim |
+| 02/11/2026 | 0 | 0,75 h* | ADR 0003 (uso de IA), escrito em conversa com a IA | Sim |
 
 ## Total por bloco
 
 | Bloco | Estimado | Real |
 |-------|----------|------|
-| 0. Validação e base | 18 h | 5,0 h |
+| 0. Validação e base | 18 h | 5,75 h |
 | 1A. Domínio da família | 18 h | |
 | 2A. Persistência da família | 15 h | |
 | Infra de produção | 12 h | |
