@@ -1,0 +1,25 @@
+# Development services. The apps run on the host (devbox) with --watch;
+# production images and the full stack live in infra/.
+name: partneroj
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-partneroj}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-partneroj}
+      POSTGRES_DB: ${POSTGRES_DB:-partneroj}
+    ports:
+      # Bound to localhost only: never reachable from the network.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Postgres 18 keeps its data in a versioned subfolder of this path.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
