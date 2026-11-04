@@ -14,12 +14,13 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 02/11/2026 | 0 | 0,75 h* | ADR 0003 (uso de IA), escrito em conversa com a IA | Sim |
 | 04/11/2026 | 0 | 2,5 h* | Monorepo: devbox (Node 26, pnpm 12), raiz do workspace, packages domain e contracts, apps api, worker e web, Postgres no Compose; repositório movido para ~/projetos | Sim |
 | 04/11/2026 | 0 | 0,75 h* | Repositório público no GitHub: varredura de dados sensíveis, e-mail noreply e valores ilustrativos no ADR 0002 (histórico reescrito antes do push); gh, ajustes no .bashrc e terminal no Maestri | Sim |
+| 04/11/2026 | 0 | 0,25 h* | CI no GitHub Actions (format, build, lint, typecheck e testes), PR #1 e proteção do `main` | Sim |
 
 ## Total por bloco
 
 | Bloco | Estimado | Real |
 |-------|----------|------|
-| 0. Validação e base | 18 h | 9,0 h |
+| 0. Validação e base | 18 h | 9,25 h |
 | 1A. Domínio da família | 18 h | |
 | 2A. Persistência da família | 15 h | |
 | Infra de produção | 12 h | |
