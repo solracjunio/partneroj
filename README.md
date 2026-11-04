@@ -6,7 +6,7 @@ An open-source API and web app for business partners to manage a shared venture 
 
 Its first real use is the construction of a house shared by three partners from the same family, starting in January 2027.
 
-*Partneroj* is Esperanto for "partners".
+_Partneroj_ is Esperanto for "partners".
 
 ## Core ideas
 

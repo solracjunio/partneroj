@@ -1,0 +1,8 @@
+# Generated or rewritten by tools
+pnpm-lock.yaml
+devbox.json
+devbox.lock
+.devbox/
+
+# Docs are written by hand in Portuguese; tables stay as written
+docs/
