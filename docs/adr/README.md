@@ -27,3 +27,6 @@ Cada arquivo registra uma decisão técnica: o contexto, as opções considerada
 | [0002](0002-cotas-como-pesos-e-maior-resto.md) | Cotas como pesos e rateio pelo maior resto | aceito |
 | [0003](0003-uso-de-ia-no-desenvolvimento.md) | Uso de IA no desenvolvimento | aceito |
 | [0004](0004-votacao-sobre-lancamento-por-unanimidade.md) | Votação sobre lançamento por unanimidade | aceito |
+| [0005](0005-dinheiro-em-centavos-com-bigint.md) | Dinheiro em centavos com `bigint` | aceito |
+| [0006](0006-lancamentos-imutaveis-com-estorno.md) | Lançamentos imutáveis, com estorno único e status derivado | aceito |
+| [0007](0007-lancamento-de-abertura.md) | Lançamento de abertura em vez de saldo inicial | aceito |
