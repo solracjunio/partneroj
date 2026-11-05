@@ -1,0 +1,384 @@
+/* Plan, section 5: base font 18px, buttons at least 48px, high contrast. */
+:root {
+  --green: #14532d;
+  --green-light: #dcfce7;
+  --blue: #1d4ed8;
+  --red: #b91c1c;
+  --ink: #111827;
+  --muted: #4b5563;
+  --line: #d1d5db;
+  --bg: #f9fafb;
+  font-size: 18px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Classes like .huge set display, which would beat the hidden attribute. */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.4;
+}
+
+.screen {
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 2rem;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.top h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.6rem;
+}
+
+button,
+.photo-button {
+  font: inherit;
+  min-height: 3rem;
+  border-radius: 0.75rem;
+  cursor: pointer;
+}
+
+.huge {
+  display: block;
+  width: 100%;
+  min-height: 4rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0.75rem 0;
+}
+
+.primary {
+  background: var(--green);
+  color: #fff;
+  border: 0;
+}
+
+.secondary {
+  background: #fff;
+  color: var(--ink);
+  border: 2px solid var(--line);
+  width: 100%;
+}
+
+.danger {
+  background: var(--red);
+  color: #fff;
+  border: 0;
+  width: 100%;
+}
+
+.back {
+  background: none;
+  border: 0;
+  font-size: 2rem;
+  width: 3rem;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.muted {
+  color: var(--muted);
+  margin: 0.2rem 0;
+}
+
+.center {
+  text-align: center;
+}
+
+.big-money {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0.2rem 0;
+}
+
+.bar {
+  height: 0.9rem;
+  background: var(--line);
+  border-radius: 1rem;
+  overflow: hidden;
+  margin: 0.5rem 0;
+}
+
+.bar-fill {
+  height: 100%;
+  background: var(--green);
+}
+
+.people {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.people li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.people li:last-child {
+  border-bottom: 0;
+}
+
+.links .link {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--line);
+  margin: 0.5rem 0;
+  padding: 0 1rem;
+  align-items: center;
+}
+
+.field-label {
+  display: block;
+  font-weight: 700;
+  margin: 1.2rem 0 0.4rem;
+}
+
+.money-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0 1rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.money-input input {
+  flex: 1;
+  border: 0;
+  font: inherit;
+  padding: 0.6rem 0;
+  min-width: 0;
+  background: transparent;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.choices.one {
+  grid-template-columns: 1fr;
+}
+
+.choice {
+  background: #fff;
+  border: 2px solid var(--line);
+  color: var(--ink);
+}
+
+.choice.selected::before {
+  content: "✓ ";
+}
+
+/* An odd last option takes the whole row. */
+.choices .choice:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.choice.selected {
+  background: var(--green-light);
+  border-color: var(--green);
+  font-weight: 700;
+}
+
+.photo-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.photo-button {
+  text-align: center;
+  padding: 0 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 4rem;
+  border: 2px dashed var(--blue);
+  color: var(--blue);
+  font-weight: 700;
+  background: #fff;
+}
+
+.thumb {
+  display: block;
+  width: 6rem;
+  margin: 0.6rem auto 0;
+  border-radius: 0.5rem;
+}
+
+.preview {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  background: #000;
+  border-radius: 0.75rem;
+}
+
+.error {
+  color: var(--red);
+  font-weight: 700;
+  min-height: 1.4em;
+}
+
+textarea {
+  width: 100%;
+  font: inherit;
+  padding: 0.6rem;
+  border: 2px solid var(--line);
+  border-radius: 0.75rem;
+}
+
+.success {
+  text-align: center;
+  padding-top: 2rem;
+}
+
+.check {
+  font-size: 4rem;
+  margin: 0;
+}
+
+.notice {
+  background: var(--green-light);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+}
+
+.timer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.feed {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.feed li {
+  margin-bottom: 0.6rem;
+}
+
+/* Each feed entry is a button: tap it to see details, undo or contest. */
+.feed-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--ink);
+}
+
+.status {
+  font-weight: 700;
+  color: var(--blue);
+  margin: 0.4rem 0 0;
+}
+
+.feed .what {
+  font-weight: 700;
+}
+
+.feed .undone {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.vote-text {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.rule {
+  border-left: 4px solid var(--blue);
+  padding-left: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.rule h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.footnote {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0 0 1.5rem;
+}
+
+.feed li p,
+.card p:first-child {
+  margin-top: 0;
+}
+
+.feed li p {
+  margin-bottom: 0.2rem;
+}
+
+.status.rejected {
+  color: var(--red);
+}
+
+.warning {
+  background: #fef9c3;
+  border-color: #facc15;
+}
+
+.people li.stacked {
+  display: block;
+}
+
+.people .line {
+  display: flex;
+  justify-content: space-between;
+}
+
+.transfer + .transfer {
+  border-top: 1px solid var(--line);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+}
