@@ -1,0 +1,3 @@
+partneroj.com.br {
+	reverse_proxy push:3000
+}

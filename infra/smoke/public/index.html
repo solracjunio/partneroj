@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Partneroj · teste de avisos</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 28rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        font-size: 1.15rem;
+      }
+      input,
+      button {
+        width: 100%;
+        font-size: 1.2rem;
+        padding: 0.9rem;
+        margin-top: 0.6rem;
+        box-sizing: border-box;
+      }
+      button {
+        background: #1f6feb;
+        color: #fff;
+        border: 0;
+        border-radius: 0.6rem;
+      }
+      #status {
+        margin-top: 1.2rem;
+        white-space: pre-line;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Teste de avisos</h1>
+    <p>Este teste confere se o celular recebe avisos do Partneroj.</p>
+    <label for="name">Seu nome</label>
+    <input id="name" autocomplete="given-name" />
+    <button id="enable">Ativar avisos</button>
+    <p id="status"></p>
+
+    <script type="module">
+      const status = document.querySelector("#status");
+      const show = (text) => (status.textContent = text);
+      // Uint8Array.fromBase64 is too new for some Android browsers.
+      const fromBase64Url = (text) =>
+        Uint8Array.from(
+          atob(text.replaceAll("-", "+").replaceAll("_", "/")),
+          (c) => c.charCodeAt(0),
+        );
+
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        show("Este navegador não aceita avisos. Tente pelo Chrome.");
+      }
+
+      document.querySelector("#enable").addEventListener("click", async () => {
+        try {
+          const name = document.querySelector("#name").value.trim();
+          if (!name) return show("Escreva seu nome primeiro.");
+
+          show("Pedindo permissão…");
+          if ((await Notification.requestPermission()) !== "granted") {
+            return show(
+              "Os avisos foram bloqueados. Libere nas configurações do site.",
+            );
+          }
+
+          const registration = await navigator.serviceWorker.register("/sw.js");
+          await navigator.serviceWorker.ready;
+          const key = await (await fetch("/vapid-public-key")).text();
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: fromBase64Url(key),
+          });
+
+          const res = await fetch("/subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, subscription }),
+          });
+          show(
+            res.ok
+              ? "Pronto! Pode fechar esta página e aguardar o aviso."
+              : "Erro ao salvar.",
+          );
+        } catch (error) {
+          show(`Erro: ${error.message}`);
+        }
+      });
+    </script>
+  </body>
+</html>
