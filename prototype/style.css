@@ -382,3 +382,40 @@ textarea {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
 }
+
+/* Guided test */
+body.testing {
+  padding-top: 4.5rem;
+}
+
+.task-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--blue);
+  color: #fff;
+}
+
+.task-bar.done {
+  background: var(--green);
+}
+
+.task-bar p {
+  flex: 1;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.task-bar-button {
+  background: #fff;
+  color: var(--ink);
+  border: 0;
+  padding: 0 0.9rem;
+  font-weight: 700;
+}

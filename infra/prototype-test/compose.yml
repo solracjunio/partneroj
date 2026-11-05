@@ -1,0 +1,40 @@
+# Block 0 guided test: serves the prototype and collects the test events.
+# Throwaway, like infra/smoke; the production compose comes in block 4.
+# Only Caddy publishes ports, because Docker-published ports bypass ufw.
+name: prototype-test
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      # Directories, not single files: rsync replaces files with a new inode,
+      # and a single-file bind mount keeps showing the old one.
+      - ./caddy:/etc/caddy:ro
+      - ./prototipo:/srv/prototipo:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - collector
+
+  collector:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ./data:/data
+
+# Reuse the smoke test volumes, so the HTTPS certificate is kept.
+volumes:
+  caddy_data:
+    external: true
+    name: smoke_caddy_data
+  caddy_config:
+    external: true
+    name: smoke_caddy_config

@@ -1,4 +1,4 @@
-/* global document, window, navigator, sessionStorage, URL, URLSearchParams, setTimeout */
+/* global document, window, navigator, sessionStorage, URL, URLSearchParams, setTimeout, CustomEvent */
 // Clickable prototype for the block 0 test. Everything lives in memory:
 // nothing is saved on a server and the photo never leaves the phone.
 //
@@ -98,6 +98,12 @@ const voteLabel = (vote) =>
       : "✅ Votação aprovada";
 const nameOf = (who) => (who === me ? "Você" : who);
 
+// The guided test (test.js) listens to these steps. Without it they do nothing.
+const emit = (name, detail = {}) =>
+  document.dispatchEvent(
+    new CustomEvent("prototype", { detail: { name, ...detail } }),
+  );
+
 // ---- navigation -------------------------------------------------------
 
 function go(id) {
@@ -105,6 +111,7 @@ function go(id) {
     screen.hidden = screen.id !== id;
   }
   window.scrollTo(0, 0);
+  emit("screen", { id });
   const render = {
     home: renderHome,
     feed: renderFeed,
@@ -204,6 +211,11 @@ function save() {
   state.feed.unshift(added);
   state.totals[me] += amount;
   state.lastEntry = added;
+  emit("expense-saved", {
+    category: added.category,
+    invoiceIsDefault: added.invoice === invoiceDefault,
+    seconds,
+  });
 
   $("#done-amount").textContent = brl.format(amount);
   const invoiceName =
@@ -236,6 +248,7 @@ function acceptPhoto() {
 // ---- undo (4. confirmation and 7. detail) -----------------------------
 
 function undoEntry(target, reason) {
+  emit("undone", { own: target.who === me });
   target.undone = reason;
   state.totals[target.who] -= target.amount;
 }
@@ -377,6 +390,7 @@ function openVote() {
     no: [],
     fresh: true,
   });
+  emit("vote-opened", { kind: state.contestKind });
   go("vote");
 }
 
@@ -476,6 +490,7 @@ function castVote(entryId, agree) {
   const vote = voteFor(entryId);
   (agree ? vote.yes : vote.no).push(me);
   vote.fresh = false;
+  emit("voted", { agree });
   renderVotes();
 }
 
@@ -541,6 +556,7 @@ function computeSettlement() {
 
 function announce() {
   state.final = "announced";
+  emit("announced");
   renderSettle();
 }
 
@@ -553,6 +569,7 @@ function skipWeek() {
     ...t,
     received: false,
   }));
+  emit("settled", { transfers: state.transfers.length });
   renderSettle();
 }
 
@@ -689,6 +706,7 @@ function renderSettle() {
 
 function confirmReceived(index) {
   state.transfers[index].received = true;
+  emit("received");
   renderSettle();
 }
 

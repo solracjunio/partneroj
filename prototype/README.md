@@ -30,8 +30,10 @@ https://partneroj.com.br/prototipo/#eu=Name&outros=Name2,Name3&nota=Name2&meta=5
 
 Without a fragment, the prototype uses made-up names, a made-up goal and a made-up sale price.
 
+## Guided test
+
+With `teste=<secret>` in the fragment, `test.js` turns the prototype into a guided test for one person: a screen saying what is recorded, 4 timed tasks (enter an expense, vote, contest an entry, do the final settlement) with a bar to skip each one, 3 questions, and then free use. The events go to the collector in [`infra/prototype-test`](../infra/prototype-test/README.md). Without the token, nothing is sent.
+
 ## Deploy
 
-```sh
-rsync -a --delete prototype/ partneroj:~/hello/prototipo/
-```
+See [`infra/prototype-test`](../infra/prototype-test/README.md).
