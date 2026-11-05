@@ -1,11 +1,13 @@
-/* global document, window, sessionStorage, URL, URLSearchParams, setTimeout */
+/* global document, window, navigator, sessionStorage, URL, URLSearchParams, setTimeout */
 // Clickable prototype for the block 0 test. Everything lives in memory:
 // nothing is saved on a server and the photo never leaves the phone.
 //
 // Real names never go in git. They come in the link fragment, which the
 // browser does not send to the server:
-//   /prototipo/#eu=Name&outros=Name2,Name3&nota=Name2&meta=50000&t=1
+//   /prototipo/#eu=Name&outros=Name2,Name3&nota=Name2&meta=50000&venda=60000&recebeu=Name2&t=1
 // meta is each partner's goal in reals (a family amount, so also not in git).
+// venda is the sale price in reals and recebeu who got the money, both used
+// by the final settlement.
 // t=1 shows how many seconds the expense took (for the timed test).
 
 // The fragment is wiped from the address bar after the first load, so keep
@@ -21,6 +23,10 @@ const others = (params.get("outros") || "Bruno,Carla").split(",").slice(0, 2);
 const invoiceDefault = params.get("nota") || others[0];
 const showTimer = params.get("t") === "1";
 const GOAL = Number(params.get("meta")) || 50000;
+const SALE = Number(params.get("venda")) || 60000;
+const saleWho = [me, ...others].includes(params.get("recebeu"))
+  ? params.get("recebeu")
+  : invoiceDefault;
 const VOTERS = 3;
 
 const brl = new Intl.NumberFormat("pt-BR", {
@@ -73,16 +79,21 @@ const state = {
   lastEntry: null,
   current: null, // entry shown on the detail screen
   contestKind: null,
+  // Final settlement: null, then "announced", then "done".
+  final: null,
+  transfers: [],
 };
 
 const findEntry = (id) => state.feed.find((e) => e.id === id);
 // One vote per entry, ever: after a rejection the entry cannot be contested again.
 const voteFor = (id) => state.votes.find((v) => v.entryId === id);
-const isOpen = (vote) => vote.no.length === 0 && vote.yes.length < VOTERS;
+// A vote that runs out of time is rejected: whoever did not vote counts as "no".
+const isRejected = (vote) => vote.no.length > 0 || Boolean(vote.expired);
+const isOpen = (vote) => !isRejected(vote) && vote.yes.length < VOTERS;
 const voteLabel = (vote) =>
   isOpen(vote)
     ? "🗳️ Em votação"
-    : vote.no.length
+    : isRejected(vote)
       ? "❌ Votação rejeitada"
       : "✅ Votação aprovada";
 const nameOf = (who) => (who === me ? "Você" : who);
@@ -99,6 +110,7 @@ function go(id) {
     feed: renderFeed,
     vote: renderVotes,
     entry: renderEntry,
+    settle: renderSettle,
   }[id];
   if (render) render();
 }
@@ -123,6 +135,15 @@ function renderHome() {
   }
   const open = state.votes.filter(isOpen).length;
   $('[data-go="vote"]').firstChild.textContent = `Votações abertas (${open}) `;
+
+  const banner = $("#home-final");
+  banner.hidden = !state.final;
+  banner.textContent =
+    state.final === "done"
+      ? "✅ O acerto final está pronto. Veja quem paga quem."
+      : "📣 Acerto final anunciado: sai em 7 dias.";
+  // After the settlement the project is closed: no new expenses.
+  $('[data-action="new-expense"]').hidden = state.final === "done";
 }
 
 // ---- 2. expense form --------------------------------------------------
@@ -293,12 +314,21 @@ function renderEntry() {
       "🗳️ Em votação. Ele continua contando nos saldos até o fim.";
   } else if (vote)
     status.textContent = `${voteLabel(vote)}. Não pode ser contestado de novo.`;
+  else if (state.final) {
+    status.hidden = false;
+    status.textContent =
+      "📣 O acerto final foi anunciado: não dá para abrir votação nova.";
+  }
 
   const mine = item.who === me;
   // Plan rules: the author undoes their own entry; others contest it.
   // No vote on an undone entry, and only one open vote per entry.
-  $("#entry-undo").hidden = !mine || Boolean(item.undone) || Boolean(vote);
-  $("#entry-contest").hidden = mine || Boolean(item.undone) || Boolean(vote);
+  // Plan, section 3: after the announcement nobody opens a new vote, and
+  // after the settlement nothing changes.
+  $("#entry-undo").hidden =
+    !mine || Boolean(item.undone) || Boolean(vote) || state.final === "done";
+  $("#entry-contest").hidden =
+    mine || Boolean(item.undone) || Boolean(vote) || Boolean(state.final);
   $("#entry-undo-box").hidden = true;
   $("#entry-undo-reason").value = "";
   $("#entry-undo-error").textContent = "";
@@ -385,7 +415,16 @@ function renderVotes() {
     const everyone = [me, ...others];
     const against = vote.no[0];
     const missing = everyone.filter((p) => !vote.yes.includes(p));
-    if (against) {
+    if (vote.expired) {
+      const names = missing.map((p) => (p === me ? "você" : p)).join(" e ");
+      card.append(
+        el(
+          "p",
+          "status rejected",
+          `❌ Rejeitada: o prazo acabou sem o "sim" de ${names}. Nada muda.`,
+        ),
+      );
+    } else if (against) {
       card.append(
         el(
           "p",
@@ -416,7 +455,7 @@ function renderVotes() {
       card.append(
         el("p", "notice", `Você ${myVote}. O voto não pode ser trocado.`),
       );
-    } else if (!against) {
+    } else if (!isRejected(vote)) {
       for (const [label, cls, value] of [
         ["👍 Concordo", "primary huge", "yes"],
         ["👎 Não concordo", "secondary huge", "no"],
@@ -440,6 +479,225 @@ function castVote(entryId, agree) {
   renderVotes();
 }
 
+// ---- 9. final settlement --------------------------------------------
+
+const cents = (reais) => Math.round(reais * 100);
+
+// Plan, section 3: split by integer weights with the largest remainder.
+// Ties go by the order drawn once when the project was created, so the
+// spare cent always goes to the same person. The sign is applied at the end.
+const WEIGHTS = [1, 1, 1];
+const DRAW = [2, 0, 1]; // indexes into [me, ...others], drawn at creation
+
+function splitByWeights(value, weights, draw) {
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const abs = Math.abs(value);
+  const parts = weights.map((w) => Math.floor((abs * w) / sum));
+  const rest = weights.map((w) => (abs * w) % sum);
+  let left = abs - parts.reduce((a, b) => a + b, 0);
+  // Array.prototype.sort is stable, so equal remainders keep the draw order.
+  for (const i of [...draw].sort((a, b) => rest[b] - rest[a])) {
+    if (left-- <= 0) break;
+    parts[i] += 1;
+  }
+  return parts.map((part) => (value < 0 ? -part : part));
+}
+
+// Greedy debt simplification: the biggest debtor pays the biggest creditor.
+// At most n - 1 transfers; the exact search comes in block 1B.
+function simplify(balances) {
+  const people = Object.entries(balances).map(([name, value]) => ({
+    name,
+    value,
+  }));
+  const transfers = [];
+  for (;;) {
+    people.sort((a, b) => a.value - b.value);
+    const debtor = people[0];
+    const creditor = people[people.length - 1];
+    if (debtor.value >= 0 || creditor.value <= 0) break;
+    const amount = Math.min(-debtor.value, creditor.value);
+    transfers.push({ from: debtor.name, to: creditor.name, amount });
+    debtor.value += amount;
+    creditor.value -= amount;
+  }
+  return transfers;
+}
+
+function computeSettlement() {
+  const everyone = [me, ...others];
+  const put = everyone.map((name) => cents(state.totals[name]));
+  const spent = put.reduce((a, b) => a + b, 0);
+  const sale = cents(SALE);
+  const profit = sale - spent;
+  const shares = splitByWeights(profit, WEIGHTS, DRAW);
+  const balances = {};
+  // Saldo = what you put in − what you got in your pocket + your share.
+  everyone.forEach((name, i) => {
+    balances[name] = put[i] - (name === saleWho ? sale : 0) + shares[i];
+  });
+  return { everyone, put, spent, sale, profit, shares, balances };
+}
+
+function announce() {
+  state.final = "announced";
+  renderSettle();
+}
+
+// Prototype only: jump to the end of the 7 days. Open votes reach their
+// deadline, so whoever did not vote counts as "no" (ADR 0004).
+function skipWeek() {
+  for (const vote of state.votes.filter(isOpen)) vote.expired = true;
+  state.final = "done";
+  state.transfers = simplify(computeSettlement().balances).map((t) => ({
+    ...t,
+    received: false,
+  }));
+  renderSettle();
+}
+
+function row(label, value, strong) {
+  const item = el("li");
+  item.append(el("span", "", label), el(strong ? "strong" : "span", "", value));
+  return item;
+}
+
+function renderSettle() {
+  const body = $("#settle-body");
+  body.replaceChildren();
+
+  if (!state.final) {
+    const card = el("section", "card");
+    card.append(
+      el("h2", "", "A obra terminou?"),
+      el(
+        "p",
+        "",
+        "O acerto devolve a cada um o que colocou e divide o lucro em partes iguais.",
+      ),
+      el("p", "muted", "Depois do anúncio, ninguém abre votação nova."),
+      el(
+        "p",
+        "muted",
+        "O acerto sai em 7 dias, quando as votações abertas terminarem.",
+      ),
+    );
+    const button = el("button", "primary huge", "Anunciar o acerto final");
+    button.dataset.action = "announce";
+    body.append(
+      card,
+      button,
+      el("p", "muted center", "Os 3 sócios recebem um aviso."),
+    );
+    return;
+  }
+
+  if (state.final === "announced") {
+    const open = state.votes.filter(isOpen).length;
+    const card = el("section", "card");
+    card.append(
+      el("p", "notice", "📣 Acerto final anunciado. Sai em 7 dias."),
+      el(
+        "p",
+        "muted",
+        open
+          ? `Votações abertas: ${open}. O acerto espera elas terminarem.`
+          : "Nenhuma votação aberta.",
+      ),
+      el("p", "muted", "Ainda dá para lançar os últimos gastos."),
+    );
+    const button = el("button", "secondary huge", "Protótipo: pular 7 dias");
+    button.dataset.action = "skip-week";
+    body.append(card, button);
+    return;
+  }
+
+  const s = computeSettlement();
+  const money = (value) => brl.format(value / 100);
+  const label = s.profit >= 0 ? "Lucro" : "Prejuízo";
+
+  const summary = el("section", "card");
+  const lines = el("ul", "people");
+  lines.append(
+    row(`Venda (recebida por ${nameOf(saleWho)})`, money(s.sale)),
+    row("Gastos da obra", `− ${money(s.spent)}`),
+    row(label, money(s.profit), true),
+  );
+  summary.append(el("h2", "", "Resultado da obra"), lines);
+
+  const each = el("section", "card");
+  const list = el("ul", "people");
+  s.everyone.forEach((name, i) => {
+    const item = el("li", "stacked");
+    const head = el("div", "line");
+    head.append(
+      el("span", "", name === me ? `${name} (você)` : name),
+      el("strong", "", money(s.put[i] + s.shares[i])),
+    );
+    item.append(
+      head,
+      el(
+        "p",
+        "muted",
+        `colocou ${money(s.put[i])} ${s.shares[i] < 0 ? "−" : "+"} ${label.toLowerCase()} ${money(Math.abs(s.shares[i]))}`,
+      ),
+    );
+    list.append(item);
+  });
+  each.append(el("h2", "", "Quanto cada um recebe no total"), list);
+
+  const pay = el("section", "card");
+  pay.append(el("h2", "", "Quem paga quem"));
+  state.transfers.forEach((t, i) => {
+    const box = el("div", "transfer");
+    const from = t.from === me ? "Você manda" : `${t.from} manda`;
+    const to = t.to === me ? "você" : t.to;
+    box.append(el("p", "vote-text", `${from} ${money(t.amount)} para ${to}`));
+    if (t.received) {
+      box.append(
+        el("p", "status", `✅ ${t.to === me ? "Você" : t.to} recebeu.`),
+      );
+    } else if (t.to === me) {
+      const button = el("button", "primary huge", "✅ Já recebi");
+      button.dataset.transfer = i;
+      box.append(button);
+    } else if (t.from === me) {
+      const button = el(
+        "button",
+        "secondary huge",
+        `Copiar a chave Pix de ${t.to}`,
+      );
+      button.dataset.pix = i;
+      box.append(
+        button,
+        el("p", "muted", `Esperando ${t.to} confirmar que recebeu.`),
+      );
+    } else {
+      box.append(el("p", "muted", `Esperando ${t.to} confirmar que recebeu.`));
+    }
+    pay.append(box);
+  });
+  if (state.transfers.length === 0)
+    pay.append(el("p", "muted", "Ninguém precisa pagar ninguém."));
+  else if (state.transfers.every((t) => t.received))
+    pay.append(
+      el("p", "notice", "🎉 Acerto concluído. A obra está encerrada."),
+    );
+
+  body.append(summary, each, pay);
+}
+
+function confirmReceived(index) {
+  state.transfers[index].received = true;
+  renderSettle();
+}
+
+function copyPix(button) {
+  // The real app copies the partner's Pix key; the prototype has none.
+  navigator.clipboard?.writeText("chave-pix-de-exemplo").catch(() => {});
+  button.textContent = "Chave Pix copiada ✓";
+}
+
 // ---- wiring -----------------------------------------------------------
 
 document.addEventListener("click", (event) => {
@@ -451,6 +709,9 @@ document.addEventListener("click", (event) => {
       Number(target.dataset.entry),
       target.dataset.vote === "yes",
     );
+  if (target.dataset.transfer)
+    return confirmReceived(Number(target.dataset.transfer));
+  if (target.dataset.pix) return copyPix(target);
   if (target.dataset.entry) return showEntry(Number(target.dataset.entry));
 
   const choiceGroup = target.closest(".choices");
@@ -483,6 +744,8 @@ document.addEventListener("click", (event) => {
     "entry-undo-confirm": undoFromDetail,
     contest: startContest,
     "contest-open": openVote,
+    announce,
+    "skip-week": skipWeek,
   };
   actions[target.dataset.action]?.();
 });

@@ -141,6 +141,7 @@ button,
 .people li {
   display: flex;
   justify-content: space-between;
+  gap: 0.75rem;
   padding: 0.5rem 0;
   border-bottom: 1px solid var(--line);
 }
@@ -360,4 +361,24 @@ textarea {
 
 .status.rejected {
   color: var(--red);
+}
+
+.warning {
+  background: #fef9c3;
+  border-color: #facc15;
+}
+
+.people li.stacked {
+  display: block;
+}
+
+.people .line {
+  display: flex;
+  justify-content: space-between;
+}
+
+.transfer + .transfer {
+  border-top: 1px solid var(--line);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
 }

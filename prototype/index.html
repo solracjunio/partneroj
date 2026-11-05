@@ -15,6 +15,8 @@
         <h1>Obra da Casa</h1>
       </header>
 
+      <p class="card notice" id="home-final" hidden></p>
+
       <button class="primary huge" data-action="new-expense">
         + Lancei um gasto
       </button>
@@ -37,6 +39,9 @@
         </button>
         <button class="link" data-go="vote">
           Votações abertas (1) <span>›</span>
+        </button>
+        <button class="link" data-go="settle">
+          Acerto final <span>›</span>
         </button>
       </nav>
     </main>
@@ -249,6 +254,19 @@
       <button class="primary huge" data-action="contest-open">
         Abrir votação
       </button>
+    </main>
+
+    <!-- 9. Acerto final -->
+    <main id="settle" class="screen" hidden>
+      <header class="top">
+        <button class="back" data-go="home" aria-label="Voltar">‹</button>
+        <h1>Acerto final</h1>
+      </header>
+      <div id="settle-body"></div>
+      <p class="card warning">
+        ⚠️ Este acerto mostra quanto cada um contribuiu. Ele não define quem é
+        dono do imóvel.
+      </p>
     </main>
 
     <p class="footnote">Protótipo: nada é salvo nem enviado.</p>
