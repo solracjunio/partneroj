@@ -7,9 +7,9 @@ Eight screens for the timed test with the family, served at `https://partneroj.c
 3. **A foto ficou boa?:** the photo check.
 4. **Gasto lançado:** the confirmation, with "Desfazer" (undo with a reason).
 5. **Atividades:** tap an entry to open it.
-6. **Votações:** the open votes. After you vote, the 2-against-1 case is shown under both rules, for the family to choose.
+6. **Votações:** every vote, with who still has to agree. The family chose unanimity ([ADR 0004](../docs/adr/0004-votacao-sobre-lancamento-por-unanimidade.md)), so the first "no" rejects the proposal and nothing changes.
 7. **Lançamento:** an entry's details. On your own entry the button is "Desfazer"; on someone else's it is "Discordo deste lançamento". Neither shows on an entry that was undone or already has an open vote.
-8. **Discordo:** propose to fix the amount or to archive the entry, with a required reason. This opens a 7-day vote, and the entry keeps counting in the balances, marked as under vote.
+8. **Discordo:** propose to fix the amount or to archive the entry, with a required reason. This opens a 7-day vote, and the entry keeps counting in the balances, marked as under vote. After a rejection, the entry cannot be contested again.
 
 ## Names
 

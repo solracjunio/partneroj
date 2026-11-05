@@ -357,3 +357,7 @@ textarea {
 .feed li p {
   margin-bottom: 0.2rem;
 }
+
+.status.rejected {
+  color: var(--red);
+}

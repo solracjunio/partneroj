@@ -76,7 +76,15 @@ const state = {
 };
 
 const findEntry = (id) => state.feed.find((e) => e.id === id);
-const openVoteFor = (id) => state.votes.find((v) => v.entryId === id);
+// One vote per entry, ever: after a rejection the entry cannot be contested again.
+const voteFor = (id) => state.votes.find((v) => v.entryId === id);
+const isOpen = (vote) => vote.no.length === 0 && vote.yes.length < VOTERS;
+const voteLabel = (vote) =>
+  isOpen(vote)
+    ? "🗳️ Em votação"
+    : vote.no.length
+      ? "❌ Votação rejeitada"
+      : "✅ Votação aprovada";
 const nameOf = (who) => (who === me ? "Você" : who);
 
 // ---- navigation -------------------------------------------------------
@@ -113,8 +121,8 @@ function renderHome() {
     );
     list.append(item);
   }
-  $('[data-go="vote"]').firstChild.textContent =
-    `Votações abertas (${state.votes.length}) `;
+  const open = state.votes.filter(isOpen).length;
+  $('[data-go="vote"]').firstChild.textContent = `Votações abertas (${open}) `;
 }
 
 // ---- 2. expense form --------------------------------------------------
@@ -252,7 +260,11 @@ function renderFeed() {
     );
     if (item.undone)
       button.append(el("p", "muted", `Desfeito: ${item.undone}`));
-    if (openVoteFor(item.id)) button.append(el("p", "status", "🗳️ Em votação"));
+    const vote = voteFor(item.id);
+    if (vote)
+      button.append(
+        el("p", isOpen(vote) ? "status" : "status rejected", voteLabel(vote)),
+      );
     row.append(button);
     list.append(row);
   }
@@ -267,7 +279,7 @@ function showEntry(id) {
 
 function renderEntry() {
   const item = state.current;
-  const vote = openVoteFor(item.id);
+  const vote = voteFor(item.id);
   $("#entry-title").textContent =
     `${nameOf(item.who)} lançou ${brl.format(item.amount)}`;
   $("#entry-detail").textContent =
@@ -276,9 +288,11 @@ function renderEntry() {
   const status = $("#entry-status");
   status.hidden = !(item.undone || vote);
   if (item.undone) status.textContent = `Desfeito: ${item.undone}`;
-  else if (vote)
+  else if (vote && isOpen(vote)) {
     status.textContent =
       "🗳️ Em votação. Ele continua contando nos saldos até o fim.";
+  } else if (vote)
+    status.textContent = `${voteLabel(vote)}. Não pode ser contestado de novo.`;
 
   const mine = item.who === me;
   // Plan rules: the author undoes their own entry; others contest it.
@@ -347,10 +361,11 @@ function proposalText(vote) {
     : `${opener} corrigir ${author}: ${brl.format(item.amount)} para ${brl.format(vote.to)}.`;
 }
 
+// Family rule (ADR 0004): unanimity. Every partner, the author included,
+// must agree; the first "no" ends the vote and nothing changes.
 function renderVotes() {
   const list = $("#vote-list");
   list.replaceChildren();
-  let iVoted = false;
   for (const vote of state.votes) {
     const card = el("section", "card");
     if (vote.fresh) {
@@ -362,27 +377,46 @@ function renderVotes() {
         ),
       );
     }
-    const voted = vote.yes.length + vote.no.length;
     card.append(
       el("p", "vote-text", proposalText(vote)),
       el("p", "muted", `Motivo: ${vote.reason}`),
-      el(
-        "p",
-        "muted",
-        `Faltam ${vote.daysLeft} dias · ${voted} de ${VOTERS} votaram`,
-      ),
     );
-    const mine = vote.yes.includes(me)
+
+    const everyone = [me, ...others];
+    const against = vote.no[0];
+    const missing = everyone.filter((p) => !vote.yes.includes(p));
+    if (against) {
+      card.append(
+        el(
+          "p",
+          "status rejected",
+          `❌ Rejeitada: ${against === me ? "você" : against} não concordou. Nada muda.`,
+        ),
+      );
+    } else if (missing.length === 0) {
+      card.append(el("p", "status", "✅ Aprovada: os 3 concordaram."));
+    } else {
+      const names = missing.map((p) => (p === me ? "você" : p)).join(" e ");
+      card.append(
+        el(
+          "p",
+          "muted",
+          `Faltam ${vote.daysLeft} dias · ${vote.yes.length} de ${VOTERS} concordaram`,
+        ),
+        el("p", "muted", `Falta o "sim" de: ${names}`),
+      );
+    }
+
+    const myVote = vote.yes.includes(me)
       ? "concordou"
       : vote.no.includes(me)
         ? "não concordou"
         : null;
-    if (mine) {
-      iVoted = true;
+    if (myVote) {
       card.append(
-        el("p", "notice", `Você ${mine}. O voto não pode ser trocado.`),
+        el("p", "notice", `Você ${myVote}. O voto não pode ser trocado.`),
       );
-    } else {
+    } else if (!against) {
       for (const [label, cls, value] of [
         ["👍 Concordo", "primary huge", "yes"],
         ["👎 Não concordo", "secondary huge", "no"],
@@ -397,47 +431,10 @@ function renderVotes() {
   }
   if (state.votes.length === 0)
     list.append(el("p", "muted", "Nenhuma votação aberta."));
-
-  const rules = $("#rules");
-  rules.hidden = !iVoted;
-  if (iVoted)
-    renderRules(
-      state.votes.find((v) => v.yes.includes(me) || v.no.includes(me)),
-    );
-}
-
-// Shows the 2-against-1 case: everyone except the author agrees.
-function renderRules(vote) {
-  const item = findEntry(vote.entryId);
-  const author = item.who;
-  const result =
-    vote.kind === "arquivar"
-      ? `o gasto é arquivado e sai da conta de ${nameOf(author)}`
-      : `o gasto vira ${brl.format(vote.to)}`;
-  const keep =
-    vote.kind === "arquivar"
-      ? "o gasto continua valendo"
-      : `o gasto continua ${brl.format(item.amount)}`;
-  const agree = [me, ...others]
-    .filter((p) => p !== author)
-    .map((p) => (p === me ? "você" : p));
-  if (author === me) {
-    $("#rules-scenario").textContent =
-      `Imagine: ${agree.join(" e ")} concordam, e você, que pagou, não concorda.`;
-    $("#rule-b").textContent =
-      `Também precisa do seu "sim", porque você pagou. Como você não concordou, nada muda: ${keep}.`;
-  } else {
-    $("#rules-scenario").textContent =
-      `Imagine: ${agree.join(" e ")} concordam, e ${author}, que pagou, não concorda.`;
-    $("#rule-b").textContent =
-      `Também precisa do "sim" de ${author}, que pagou. Como ${author} não concordou, nada muda: ${keep}.`;
-  }
-  $("#rule-a").textContent =
-    `2 votos de 3 bastam. A proposta é aprovada e ${result}.`;
 }
 
 function castVote(entryId, agree) {
-  const vote = openVoteFor(entryId);
+  const vote = voteFor(entryId);
   (agree ? vote.yes : vote.no).push(me);
   vote.fresh = false;
   renderVotes();
