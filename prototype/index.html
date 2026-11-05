@@ -9,6 +9,12 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <!-- Guided test bar (test.js), shown only with a test link -->
+    <div class="task-bar" id="task-bar" hidden>
+      <p id="task-bar-text"></p>
+      <button class="task-bar-button" id="task-bar-button"></button>
+    </div>
+
     <!-- 1. Início -->
     <main id="home" class="screen">
       <header class="top">
@@ -269,7 +275,78 @@
       </p>
     </main>
 
-    <p class="footnote">Protótipo: nada é salvo nem enviado.</p>
+    <!-- Guided test screens (test.js) -->
+    <main id="test-intro" class="screen" hidden>
+      <header class="top"><h1 id="test-hello">Olá!</h1></header>
+      <p>
+        Este é um teste do app da obra. Nada aqui é de verdade: os nomes são os
+        de vocês, mas os valores são inventados.
+      </p>
+      <p>
+        São <strong>4 tarefas curtas</strong>. Não existe resposta errada: se
+        você travar, é o app que precisa melhorar.
+      </p>
+      <p>
+        Se não conseguir uma tarefa, toque em <strong>"Pular"</strong> no alto
+        da tela.
+      </p>
+      <section class="card">
+        <h2>O que o teste registra</h2>
+        <p class="muted">
+          O tempo de cada tarefa, as telas e os botões que você tocou, o modelo
+          do celular e as suas respostas no fim.
+        </p>
+        <h2>O que não registra</h2>
+        <p class="muted">
+          Fotos, valores digitados e senhas. A foto da nota nunca sai do seu
+          celular.
+        </p>
+      </section>
+      <button class="primary huge" data-test="start">Começar</button>
+    </main>
+
+    <main id="test-task" class="screen" hidden>
+      <header class="top"><h1 id="test-task-title"></h1></header>
+      <p class="vote-text" id="test-task-text"></p>
+      <button class="primary huge" data-test="begin-task">
+        Começar a tarefa
+      </button>
+    </main>
+
+    <main id="test-questions" class="screen" hidden>
+      <header class="top"><h1>Só mais 3 perguntas</h1></header>
+      <p class="field-label">1. Foi fácil usar o app?</p>
+      <div class="choices one" id="test-ease">
+        <button class="choice" data-value="facil">😀 Fácil</button>
+        <button class="choice" data-value="medio">😐 Mais ou menos</button>
+        <button class="choice" data-value="dificil">😕 Difícil</button>
+      </div>
+      <label class="field-label" for="test-hard"
+        >2. O que foi mais difícil ou confuso?</label
+      >
+      <textarea id="test-hard" rows="3" maxlength="1000"></textarea>
+      <label class="field-label" for="test-wish"
+        >3. O que você gostaria que o app tivesse?</label
+      >
+      <textarea id="test-wish" rows="3" maxlength="1000"></textarea>
+      <p class="error" id="test-error" role="alert"></p>
+      <button class="primary huge" data-test="answers">Enviar respostas</button>
+    </main>
+
+    <main id="test-thanks" class="screen" hidden>
+      <div class="success">
+        <p class="check">🙏</p>
+        <h1>Obrigado!</h1>
+        <p>Suas respostas foram enviadas.</p>
+        <p class="notice">
+          Agora mexa à vontade no app. Tudo continua sendo só um teste.
+        </p>
+      </div>
+      <button class="primary huge" data-test="explore">Explorar o app</button>
+    </main>
+
+    <p class="footnote" id="footnote">Protótipo: nada é salvo nem enviado.</p>
     <script src="app.js"></script>
+    <script src="test.js"></script>
   </body>
 </html>
