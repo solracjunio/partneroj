@@ -4,7 +4,7 @@
 
 An open-source API and web app for business partners to manage a shared venture together: expenses with receipts, a notification to everyone on every entry, voting to dispute an entry, and a final settlement based on each partner's share.
 
-Its first real use is the construction of a house shared by three partners from the same family, starting in January 2027.
+Its first real use is the construction of a house shared by three partners, starting in January 2027.
 
 _Partneroj_ is Esperanto for "partners".
 

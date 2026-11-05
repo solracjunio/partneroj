@@ -7,12 +7,12 @@
 
 O Partneroj é o meu projeto de portfólio para uma vaga de desenvolvedor TypeScript full-stack. Tenho anos de experiência com C# e Unity, mas TypeScript, NestJS e React são novos para mim. Numa entrevista, vou precisar explicar e defender o código do repositório, inclusive escrevendo código parecido ao vivo, sem ajuda.
 
-Tenho 12 horas por semana para o projeto, e o plano soma cerca de 226 horas. A família começa a usar o app em 10 de janeiro de 2027, com dinheiro de verdade. Uso uma IA de programação (Claude Code), que consegue escrever boa parte do código e pode encurtar esse prazo.
+Tenho 12 horas por semana para o projeto, e o plano soma cerca de 226 horas. Os sócios começam a usar o app em 10 de janeiro de 2027, com dinheiro de verdade. Uso uma IA de programação (Claude Code), que consegue escrever boa parte do código e pode encurtar esse prazo.
 
 Isso cria uma tensão:
 
 - se a IA escrever tudo, o projeto anda mais rápido, mas eu posso acabar com um repositório que não sei defender e um TypeScript que não aprendi;
-- se eu escrever tudo à mão, aprendo mais, mas não termino a tempo para a família.
+- se eu escrever tudo à mão, aprendo mais, mas não termino a tempo para os sócios.
 
 Este ADR define onde a IA pode escrever código, como esse código é revisado e como confiro que estou aprendendo.
 
@@ -21,14 +21,14 @@ Este ADR define onde a IA pode escrever código, como esse código é revisado e
 ### Que partes eu escrevo à mão
 
 1. **Nenhuma:** a IA pode escrever qualquer parte, e eu leio e reviso tudo.
-   - Vantagem: velocidade máxima, o que importa com 12 horas por semana e a família começando em janeiro.
+   - Vantagem: velocidade máxima, o que importa com 12 horas por semana e os sócios começando em janeiro.
    - Desvantagem: o aprendizado depende de eu ler e entender de fato, e não de escrever. Numa entrevista, preciso explicar um código que não digitei.
 2. **O núcleo:** eu escrevo à mão o `packages/domain` (rateio, acerto, simplificação de dívidas e apuração de votação), e a IA escreve o resto.
    - Vantagem: o código que um entrevistador mais deve pedir para explicar é justamente o que escrevi.
    - Desvantagem: o bloco do domínio fica mais lento, numa fase em que o prazo de janeiro já está apertado.
 3. **Tudo:** eu escrevo todo o código, e a IA só explica e revisa.
    - Vantagem: o máximo de aprendizado.
-   - Desvantagem: as cerca de 226 horas do plano crescem muito, e a data da família fica comprometida.
+   - Desvantagem: as cerca de 226 horas do plano crescem muito, e a data dos sócios fica comprometida.
 
 ### Como o código da IA é revisado
 
@@ -67,7 +67,7 @@ Escolhi a opção 1, com três condições:
 - **A IA explica as decisões** antes de tomá-las. As decisões importantes viram ADRs, escritos em conversa, como este.
 - **Eu leio tudo o que entra no repositório.** Quando encontro um erro ou fico com dúvida, paro e pergunto antes de seguir.
 
-Assim mantenho a velocidade que o prazo da família exige, e o aprendizado vem de ler, perguntar e revisar, em vez de digitar.
+Assim mantenho a velocidade que o prazo dos sócios exige, e o aprendizado vem de ler, perguntar e revisar, em vez de digitar.
 
 ### Revisão a cada commit agora, por pull request depois
 

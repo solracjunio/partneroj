@@ -14,7 +14,7 @@ coverage/
 *.pem
 *.key
 
-# Dados reais da família, uploads e backups
+# Dados reais dos sócios, uploads e backups
 data/
 uploads/
 backups/
@@ -22,7 +22,7 @@ backups/
 *.sql.gz
 
 # Documentos pessoais (o plano completo fica fora deste repositório)
-docs/familia.md
+docs/socios.md
 
 # Ambiente local
 .devbox/

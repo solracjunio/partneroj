@@ -7,7 +7,7 @@
 
 No fim do projeto, o resultado (o que entrou menos o que saiu) é dividido entre os sócios de acordo com a cota de cada um. O dinheiro é guardado em centavos inteiros, e nem toda divisão é exata: R$ 100,00 entre 3 sócios dá R$ 33,333..., e não existe um terço de centavo. Alguém precisa ficar com o centavo que sobra.
 
-Na obra da família são 3 sócios com cotas iguais, e o acerto final só acontece no fim da obra. Um erro pequeno na forma de guardar a cota, aplicado sobre o total gasto, vira uma diferença em reais entre sócios que combinaram partes iguais.
+Na obra são 3 sócios com cotas iguais, e o acerto final só acontece no fim da obra. Um erro pequeno na forma de guardar a cota, aplicado sobre o total gasto, vira uma diferença em reais entre sócios que combinaram partes iguais.
 
 Duas coisas não podem acontecer:
 

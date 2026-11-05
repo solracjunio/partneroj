@@ -9,7 +9,7 @@ import { URL } from "node:url";
 import { isPushEndpoint } from "./endpoints.js";
 import { loadOrCreateKeys } from "./vapid.js";
 
-// A family test needs a handful of phones; the cap stops anyone filling the disk.
+// A test with the partners needs a handful of phones; the cap stops anyone filling the disk.
 const MAX_SUBS = 20;
 
 const DATA = process.env.DATA_DIR ?? "/data";
