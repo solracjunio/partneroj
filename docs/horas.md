@@ -21,13 +21,16 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 05/11/2026 | 0 | 1,0 h* | Protótipo clicável em HTML (8 telas) no ar em `/prototipo/`, teste do desenvolvedor (27 s) e ajustes; telas para contestar lançamento; regra de votação por unanimidade (ADR 0004) | Sim |
 | 05/11/2026 | 0 | 0,5 h* | Tela do acerto final no protótipo: anúncio com 7 dias, divisão do lucro pelo maior resto e Pix sugeridos | Sim |
 | 05/11/2026 | 0 | 1,0 h* | Teste guiado no protótipo (4 tarefas, 3 perguntas e uso livre) com coletor na VPS por token secreto e relatório; revisão de privacidade nos textos dos PRs | Sim |
+| 05/11/2026 | 0 | 0,75 h* | Revisão de privacidade: termos trocados por "sócios" nos arquivos, PRs e commits, e histórico do `main` reescrito; leitura do resultado do teste guiado; correção da tabela de aparelhos; quiz do bloco 0 (4/5) | Sim |
+| 05/11/2026 | 1A | 1,0 h* | `packages/domain` em TDD com testes de propriedade: rateio por pesos e maior resto com negativos (PR #9), fórmula do saldo e regra de ouro (PR #10), regras do estorno, status derivado e totais por categoria (PR #11) | Sim |
+| 05/11/2026 | 1A | 1,0 h* | Resumo do bloco para entrevista; ADRs 0005 a 0007 (centavos em `bigint`, estorno e abertura), escritos em conversa com a IA; quiz do bloco 1A (2/5) e resumo de resultado × contribuição | Sim |
 
 ## Total por bloco
 
 | Bloco | Estimado | Real |
 |-------|----------|------|
-| 0. Validação e base | 18 h | 14,25 h |
-| 1A. Domínio dos sócios | 18 h | |
+| 0. Validação e base | 18 h | 15,0 h |
+| 1A. Domínio dos sócios | 18 h | 2,0 h |
 | 2A. Persistência dos sócios | 15 h | |
 | Infra de produção | 12 h | |
 | Versão para os sócios | 30 h | |
