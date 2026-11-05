@@ -15,6 +15,11 @@
   box-sizing: border-box;
 }
 
+/* Classes like .huge set display, which would beat the hidden attribute. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
@@ -291,11 +296,25 @@ textarea {
 }
 
 .feed li {
+  margin-bottom: 0.6rem;
+}
+
+/* Each feed entry is a button: tap it to see details, undo or contest. */
+.feed-item {
+  display: block;
+  width: 100%;
+  text-align: left;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 0.75rem;
   padding: 0.75rem 1rem;
-  margin-bottom: 0.6rem;
+  color: var(--ink);
+}
+
+.status {
+  font-weight: 700;
+  color: var(--blue);
+  margin: 0.4rem 0 0;
 }
 
 .feed .what {

@@ -1,13 +1,15 @@
 # Clickable prototype (block 0)
 
-Six screens for the timed test with the family, served at `https://partneroj.com.br/prototipo/`. It uses plain HTML, CSS and JavaScript, with no build step and no backend. Nothing is saved, and the receipt photo never leaves the phone.
+Eight screens for the timed test with the family, served at `https://partneroj.com.br/prototipo/`. It uses plain HTML, CSS and JavaScript, with no build step and no backend. Nothing is saved, and the receipt photo never leaves the phone.
 
 1. **Início:** how much each partner has put in, against each partner's goal.
 2. **Lancei um gasto:** amount, category, who paid, whose name is on the receipt, and the photo.
 3. **A foto ficou boa?:** the photo check.
 4. **Gasto lançado:** the confirmation, with "Desfazer" (undo with a reason).
-5. **Atividades:** the feed.
-6. **Votação:** a vote, then the 2-against-1 case under both rules, for the family to choose.
+5. **Atividades:** tap an entry to open it.
+6. **Votações:** the open votes. After you vote, the 2-against-1 case is shown under both rules, for the family to choose.
+7. **Lançamento:** an entry's details. On your own entry the button is "Desfazer"; on someone else's it is "Discordo deste lançamento". Neither shows on an entry that was undone or already has an open vote.
+8. **Discordo:** propose to fix the amount or to archive the entry, with a required reason. This opens a 7-day vote, and the entry keeps counting in the balances, marked as under vote.
 
 ## Names
 

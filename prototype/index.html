@@ -148,26 +148,14 @@
       <ul class="feed" id="feed-list"></ul>
     </main>
 
-    <!-- 6. Votação -->
+    <!-- 6. Votações -->
     <main id="vote" class="screen" hidden>
       <header class="top">
         <button class="back" data-go="home" aria-label="Voltar">‹</button>
-        <h1>Votação</h1>
+        <h1>Votações</h1>
       </header>
 
-      <section class="card">
-        <p class="vote-text" id="vote-text"></p>
-        <p class="muted" id="vote-reason"></p>
-        <p class="muted" id="vote-status"></p>
-      </section>
-
-      <div id="vote-buttons">
-        <button class="primary huge" data-action="vote-yes">👍 Concordo</button>
-        <button class="secondary huge" data-action="vote-no">
-          👎 Não concordo
-        </button>
-      </div>
-      <p class="notice" id="vote-thanks" hidden></p>
+      <div id="vote-list"></div>
 
       <section class="card rules" id="rules" hidden>
         <h2>E se o resultado for 2 contra 1?</h2>
@@ -182,6 +170,88 @@
         </div>
         <p class="muted">A família escolhe uma das duas regras.</p>
       </section>
+    </main>
+
+    <!-- 7. Lançamento -->
+    <main id="entry" class="screen" hidden>
+      <header class="top">
+        <button class="back" data-go="feed" aria-label="Voltar">‹</button>
+        <h1>Lançamento</h1>
+      </header>
+
+      <section class="card">
+        <p class="vote-text" id="entry-title"></p>
+        <p class="muted" id="entry-detail"></p>
+        <p class="status" id="entry-status" hidden></p>
+      </section>
+
+      <button class="secondary huge" id="entry-undo" data-action="entry-undo">
+        Desfazer este lançamento
+      </button>
+      <div class="card" id="entry-undo-box" hidden>
+        <label class="field-label" for="entry-undo-reason"
+          >Por que desfazer?</label
+        >
+        <textarea
+          id="entry-undo-reason"
+          rows="2"
+          placeholder="Ex.: lancei duas vezes"
+        ></textarea>
+        <p class="error" id="entry-undo-error" role="alert"></p>
+        <button class="danger" data-action="entry-undo-confirm">
+          Desfazer
+        </button>
+      </div>
+
+      <button class="secondary huge" id="entry-contest" data-action="contest">
+        Discordo deste lançamento
+      </button>
+    </main>
+
+    <!-- 8. Discordo -->
+    <main id="contest" class="screen" hidden>
+      <header class="top">
+        <button class="back" data-go="entry" aria-label="Voltar">‹</button>
+        <h1>Discordo</h1>
+      </header>
+
+      <p class="card" id="contest-about"></p>
+
+      <p class="field-label">O que você propõe?</p>
+      <div class="choices one" id="contest-kind">
+        <button class="choice" data-value="corrigir">Corrigir o valor</button>
+        <button class="choice" data-value="arquivar">
+          Arquivar este gasto
+        </button>
+      </div>
+
+      <div id="contest-amount-box" hidden>
+        <label class="field-label" for="contest-amount"
+          >Qual é o valor certo?</label
+        >
+        <div class="money-input">
+          <span>R$</span>
+          <input
+            id="contest-amount"
+            inputmode="decimal"
+            autocomplete="off"
+            placeholder="0,00"
+          />
+        </div>
+      </div>
+
+      <label class="field-label" for="contest-reason">Por quê?</label>
+      <textarea
+        id="contest-reason"
+        rows="2"
+        placeholder="Ex.: a nota da loja é de R$ 305,00"
+      ></textarea>
+
+      <p class="muted">Os 3 sócios votam. A votação fica aberta por 7 dias.</p>
+      <p class="error" id="contest-error" role="alert"></p>
+      <button class="primary huge" data-action="contest-open">
+        Abrir votação
+      </button>
     </main>
 
     <p class="footnote">Protótipo: nada é salvo nem enviado.</p>
