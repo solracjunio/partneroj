@@ -5,6 +5,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
+import { isPushEndpoint } from "./endpoints.js";
 import { loadOrCreateKeys, vapidAuthorization } from "./vapid.js";
 
 const DATA = process.env.DATA_DIR ?? "/data";
@@ -22,6 +23,11 @@ if (targets.length === 0) {
 
 const gone = new Set();
 for (const { name, subscription } of targets) {
+  // Second check: never POST to an address the server did not accept.
+  if (!isPushEndpoint(subscription.endpoint)) {
+    process.stdout.write(`${name}: skipped, unknown push service\n`);
+    continue;
+  }
   const started = Date.now();
   const res = await fetch(subscription.endpoint, {
     method: "POST",

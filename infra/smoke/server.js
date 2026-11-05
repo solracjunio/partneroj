@@ -6,7 +6,11 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import process from "node:process";
 import { URL } from "node:url";
+import { isPushEndpoint } from "./endpoints.js";
 import { loadOrCreateKeys } from "./vapid.js";
+
+// A family test needs a handful of phones; the cap stops anyone filling the disk.
+const MAX_SUBS = 20;
 
 const DATA = process.env.DATA_DIR ?? "/data";
 const SUBS = join(DATA, "subscriptions.json");
@@ -50,16 +54,21 @@ createServer((req, res) => {
     return readBody(req)
       .then((raw) => {
         const { name, subscription } = JSON.parse(raw);
-        if (
-          typeof subscription?.endpoint !== "string" ||
-          !subscription.endpoint.startsWith("https://")
-        ) {
+        if (!isPushEndpoint(subscription?.endpoint)) {
           return send(400, "text/plain", "invalid subscription");
         }
-        const label = String(name ?? "?").slice(0, 40);
+        // No control characters, so a name cannot fake extra log lines.
+        const label =
+          String(name ?? "")
+            .replace(/[\p{Cc}\p{Cf}]/gu, "")
+            .trim()
+            .slice(0, 40) || "?";
         const subs = readSubs().filter(
           (s) => s.subscription.endpoint !== subscription.endpoint,
         );
+        if (subs.length >= MAX_SUBS) {
+          return send(429, "text/plain", "too many subscriptions");
+        }
         subs.push({ name: label, subscription, at: new Date().toISOString() });
         writeFileSync(SUBS, JSON.stringify(subs, null, 2), { mode: 0o600 });
         process.stdout.write(
