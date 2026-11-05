@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#14532d" />
+    <title>Partneroj · protótipo</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- 1. Início -->
+    <main id="home" class="screen">
+      <header class="top">
+        <h1>Obra da Casa</h1>
+      </header>
+
+      <button class="primary huge" data-action="new-expense">
+        + Lancei um gasto
+      </button>
+
+      <section class="card">
+        <p class="muted">Você já colocou</p>
+        <p class="big-money" id="my-total"></p>
+        <div class="bar"><div class="bar-fill" id="my-bar"></div></div>
+        <p class="muted" id="my-goal"></p>
+      </section>
+
+      <section class="card">
+        <h2>Quanto cada um já colocou</h2>
+        <ul class="people" id="people"></ul>
+      </section>
+
+      <nav class="links">
+        <button class="link" data-go="feed">
+          Atividades recentes <span>›</span>
+        </button>
+        <button class="link" data-go="vote">
+          Votações abertas (1) <span>›</span>
+        </button>
+      </nav>
+    </main>
+
+    <!-- 2. Lancei um gasto -->
+    <main id="expense" class="screen" hidden>
+      <header class="top">
+        <button class="back" data-go="home" aria-label="Voltar">‹</button>
+        <h1>Lancei um gasto</h1>
+      </header>
+
+      <label class="field-label" for="amount">Quanto foi?</label>
+      <div class="money-input">
+        <span>R$</span>
+        <input
+          id="amount"
+          inputmode="decimal"
+          autocomplete="off"
+          placeholder="0,00"
+        />
+      </div>
+
+      <p class="field-label">O que foi?</p>
+      <div class="choices" id="category">
+        <button class="choice" data-value="Material">Material</button>
+        <button class="choice" data-value="Taxas">Taxas</button>
+        <button class="choice" data-value="Outro">Outro</button>
+      </div>
+
+      <p class="field-label">Quem pagou?</p>
+      <div class="choices one" id="payer">
+        <button class="choice selected" data-value="me">
+          Eu, do meu bolso
+        </button>
+      </div>
+
+      <p class="field-label">A nota está no nome de quem?</p>
+      <div class="choices" id="invoice"></div>
+
+      <p class="field-label">Foto da nota</p>
+      <div class="photo-buttons">
+        <label class="photo-button">
+          📷 Tirar foto
+          <input
+            class="photo-input"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+          />
+        </label>
+        <label class="photo-button">
+          🖼️ Escolher da galeria
+          <input class="photo-input" type="file" accept="image/*" hidden />
+        </label>
+      </div>
+      <img id="photo-thumb" class="thumb" alt="Foto da nota" hidden />
+
+      <p class="error" id="expense-error" role="alert"></p>
+      <button class="primary huge" data-action="save">Salvar</button>
+    </main>
+
+    <!-- 3. Foto da nota -->
+    <main id="photo-check" class="screen" hidden>
+      <header class="top"><h1>A foto ficou boa?</h1></header>
+      <img id="photo-preview" class="preview" alt="Foto da nota" />
+      <p class="muted center">Dá para ler o valor e a data?</p>
+      <button class="primary huge" data-action="photo-ok">
+        Sim, usar esta foto
+      </button>
+      <button class="secondary huge" data-action="photo-retry">
+        Escolher outra
+      </button>
+    </main>
+
+    <!-- 4. Confirmação -->
+    <main id="done" class="screen" hidden>
+      <div class="success">
+        <p class="check">✅</p>
+        <h1>Gasto lançado!</h1>
+        <p class="big-money" id="done-amount"></p>
+        <p id="done-detail"></p>
+        <p class="notice" id="done-notified"></p>
+      </div>
+      <p class="timer" id="done-timer" hidden></p>
+      <button class="primary huge" data-go="home">Voltar ao início</button>
+      <button class="secondary" data-action="undo">
+        Desfazer este lançamento
+      </button>
+
+      <div class="card" id="undo-box" hidden>
+        <label class="field-label" for="undo-reason">Por que desfazer?</label>
+        <textarea
+          id="undo-reason"
+          rows="2"
+          placeholder="Ex.: digitei o valor errado"
+        ></textarea>
+        <p class="error" id="undo-error" role="alert"></p>
+        <button class="danger" data-action="undo-confirm">Desfazer</button>
+      </div>
+    </main>
+
+    <!-- 5. Atividades -->
+    <main id="feed" class="screen" hidden>
+      <header class="top">
+        <button class="back" data-go="home" aria-label="Voltar">‹</button>
+        <h1>Atividades</h1>
+      </header>
+      <ul class="feed" id="feed-list"></ul>
+    </main>
+
+    <!-- 6. Votação -->
+    <main id="vote" class="screen" hidden>
+      <header class="top">
+        <button class="back" data-go="home" aria-label="Voltar">‹</button>
+        <h1>Votação</h1>
+      </header>
+
+      <section class="card">
+        <p class="vote-text" id="vote-text"></p>
+        <p class="muted" id="vote-reason"></p>
+        <p class="muted" id="vote-status"></p>
+      </section>
+
+      <div id="vote-buttons">
+        <button class="primary huge" data-action="vote-yes">👍 Concordo</button>
+        <button class="secondary huge" data-action="vote-no">
+          👎 Não concordo
+        </button>
+      </div>
+      <p class="notice" id="vote-thanks" hidden></p>
+
+      <section class="card rules" id="rules" hidden>
+        <h2>E se o resultado for 2 contra 1?</h2>
+        <p id="rules-scenario"></p>
+        <div class="rule">
+          <h3>Regra A: maioria</h3>
+          <p id="rule-a"></p>
+        </div>
+        <div class="rule">
+          <h3>Regra B: maioria e o "sim" de quem pagou</h3>
+          <p id="rule-b"></p>
+        </div>
+        <p class="muted">A família escolhe uma das duas regras.</p>
+      </section>
+    </main>
+
+    <p class="footnote">Protótipo: nada é salvo nem enviado.</p>
+    <script src="app.js"></script>
+  </body>
+</html>
