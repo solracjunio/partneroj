@@ -1,0 +1,28 @@
+# Block 0 smoke test: HTTPS and Web Push to a phone. Throwaway; the
+# production compose comes in block 4. Only Caddy publishes ports, because
+# Docker-published ports bypass ufw.
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - push
+
+  push:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - push_data:/data
+
+volumes:
+  caddy_data:
+  caddy_config:
+  push_data:
