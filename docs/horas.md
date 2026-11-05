@@ -15,12 +15,14 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 04/11/2026 | 0 | 2,5 h* | Monorepo: devbox (Node 26, pnpm 12), raiz do workspace, packages domain e contracts, apps api, worker e web, Postgres no Compose; repositório movido para ~/projetos | Sim |
 | 04/11/2026 | 0 | 0,75 h* | Repositório público no GitHub: varredura de dados sensíveis, e-mail noreply e valores ilustrativos no ADR 0002 (histórico reescrito antes do push); gh, ajustes no .bashrc e terminal no Maestri | Sim |
 | 04/11/2026 | 0 | 0,25 h* | CI no GitHub Actions (format, build, lint, typecheck e testes), PR #1 e proteção do `main` | Sim |
+| 04/11/2026 | 0 | 1,0 h* | Comparativo de hospedagem (Hostinger, Hetzner, Magalu, Contabo, Oracle, AWS, Heroku, PC próprio) e decisão; VPS Hostinger KVM 1 em SP e `partneroj.com.br`; servidor protegido (usuário sem root, SSH só por chave, ufw), Docker e DNS com DNSSEC | Sim |
+| 05/11/2026 | 0 | 0,25 h* | Teste de fumaça: HTTPS com Caddy e Let's Encrypt e push VAPID chegando no celular (Brave) | Sim |
 
 ## Total por bloco
 
 | Bloco | Estimado | Real |
 |-------|----------|------|
-| 0. Validação e base | 18 h | 9,25 h |
+| 0. Validação e base | 18 h | 10,5 h |
 | 1A. Domínio da família | 18 h | |
 | 2A. Persistência da família | 15 h | |
 | Infra de produção | 12 h | |
