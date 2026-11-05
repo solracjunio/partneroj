@@ -1,0 +1,22 @@
+partneroj.com.br {
+	header X-Robots-Tag "noindex"
+	redir /prototipo /prototipo/
+
+	handle /coleta {
+		request_body {
+			max_size 64KB
+		}
+		reverse_proxy collector:3000
+	}
+
+	handle_path /prototipo/* {
+		root * /srv/prototipo
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	handle {
+		header Content-Type "text/html; charset=utf-8"
+		respond "<h1>Olá, mundo!</h1><p>Partneroj está no ar.</p>" 200
+	}
+}

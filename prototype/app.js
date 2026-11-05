@@ -1,11 +1,11 @@
-/* global document, window, navigator, sessionStorage, URL, URLSearchParams, setTimeout */
+/* global document, window, navigator, sessionStorage, URL, URLSearchParams, setTimeout, CustomEvent */
 // Clickable prototype for the block 0 test. Everything lives in memory:
 // nothing is saved on a server and the photo never leaves the phone.
 //
 // Real names never go in git. They come in the link fragment, which the
 // browser does not send to the server:
 //   /prototipo/#eu=Name&outros=Name2,Name3&nota=Name2&meta=50000&venda=60000&recebeu=Name2&t=1
-// meta is each partner's goal in reals (a family amount, so also not in git).
+// meta is each partner's goal in reals (a real amount, so also not in git).
 // venda is the sale price in reals and recebeu who got the money, both used
 // by the final settlement.
 // t=1 shows how many seconds the expense took (for the timed test).
@@ -98,6 +98,12 @@ const voteLabel = (vote) =>
       : "✅ Votação aprovada";
 const nameOf = (who) => (who === me ? "Você" : who);
 
+// The guided test (test.js) listens to these steps. Without it they do nothing.
+const emit = (name, detail = {}) =>
+  document.dispatchEvent(
+    new CustomEvent("prototype", { detail: { name, ...detail } }),
+  );
+
 // ---- navigation -------------------------------------------------------
 
 function go(id) {
@@ -105,6 +111,7 @@ function go(id) {
     screen.hidden = screen.id !== id;
   }
   window.scrollTo(0, 0);
+  emit("screen", { id });
   const render = {
     home: renderHome,
     feed: renderFeed,
@@ -204,6 +211,11 @@ function save() {
   state.feed.unshift(added);
   state.totals[me] += amount;
   state.lastEntry = added;
+  emit("expense-saved", {
+    category: added.category,
+    invoiceIsDefault: added.invoice === invoiceDefault,
+    seconds,
+  });
 
   $("#done-amount").textContent = brl.format(amount);
   const invoiceName =
@@ -236,6 +248,7 @@ function acceptPhoto() {
 // ---- undo (4. confirmation and 7. detail) -----------------------------
 
 function undoEntry(target, reason) {
+  emit("undone", { own: target.who === me });
   target.undone = reason;
   state.totals[target.who] -= target.amount;
 }
@@ -377,6 +390,7 @@ function openVote() {
     no: [],
     fresh: true,
   });
+  emit("vote-opened", { kind: state.contestKind });
   go("vote");
 }
 
@@ -391,7 +405,7 @@ function proposalText(vote) {
     : `${opener} corrigir ${author}: ${brl.format(item.amount)} para ${brl.format(vote.to)}.`;
 }
 
-// Family rule (ADR 0004): unanimity. Every partner, the author included,
+// Partners' rule (ADR 0004): unanimity. Every partner, the author included,
 // must agree; the first "no" ends the vote and nothing changes.
 function renderVotes() {
   const list = $("#vote-list");
@@ -476,6 +490,7 @@ function castVote(entryId, agree) {
   const vote = voteFor(entryId);
   (agree ? vote.yes : vote.no).push(me);
   vote.fresh = false;
+  emit("voted", { agree });
   renderVotes();
 }
 
@@ -541,6 +556,7 @@ function computeSettlement() {
 
 function announce() {
   state.final = "announced";
+  emit("announced");
   renderSettle();
 }
 
@@ -553,6 +569,7 @@ function skipWeek() {
     ...t,
     received: false,
   }));
+  emit("settled", { transfers: state.transfers.length });
   renderSettle();
 }
 
@@ -689,6 +706,7 @@ function renderSettle() {
 
 function confirmReceived(index) {
   state.transfers[index].received = true;
+  emit("received");
   renderSettle();
 }
 
@@ -764,6 +782,6 @@ for (const input of document.querySelectorAll(".photo-input")) {
 }
 
 // Keep the fragment out of the address bar after reading it, so a
-// screenshot of the page does not show the family's names.
+// screenshot of the page does not show the partners' names.
 window.history.replaceState(null, "", window.location.pathname);
 go("home");
