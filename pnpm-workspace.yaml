@@ -1,3 +1,14 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Install scripts are denied unless a package really needs one.
+# All of these work without theirs (optional native addons or checks):
+# esbuild ships its binary in a per-platform package, ssh2 and cpu-features
+# build optional addons (Testcontainers only uses ssh2 for remote Docker),
+# protobufjs only checks versions.
+allowBuilds:
+  cpu-features: false
+  esbuild: false
+  protobufjs: false
+  ssh2: false

@@ -3,6 +3,7 @@ pnpm-lock.yaml
 devbox.json
 devbox.lock
 .devbox/
+packages/db/drizzle/
 
 # Docs are written by hand in Portuguese; tables stay as written
 docs/
