@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { totalsByCategory } from "./categories.js";
 import { createReversal, type LedgerEntry } from "./reversal.js";
 
-const shares = [{ partnerId: "A", weight: 1 }];
+const weights = [{ partnerId: "A", weight: 1 }];
 
 describe("totalsByCategory", () => {
   it("cancels a reversed expense in its own category, not as income", () => {
@@ -14,7 +14,7 @@ describe("totalsByCategory", () => {
       category: "Material",
     };
     const sand: LedgerEntry = { ...cement, id: "e2", amount: 10000n };
-    const reversal = createReversal([cement, sand], shares, {
+    const reversal = createReversal([cement, sand], weights, {
       id: "e3",
       originalId: "e1",
       reason: "wrong amount",

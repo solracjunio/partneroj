@@ -2,7 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { splitByWeights } from "./split.js";
 
-// Shares are listed in the project's draw order: on a tie, the earlier wins.
+// Weights are listed in the project's draw order: on a tie, the earlier wins.
 const equalThree = [
   { partnerId: "A", weight: 1 },
   { partnerId: "B", weight: 1 },
@@ -21,11 +21,11 @@ describe("splitByWeights", () => {
   });
 
   it("gives the leftover cent to the largest remainder before the draw order", () => {
-    const shares = [
+    const weights = [
       { partnerId: "A", weight: 2 },
       { partnerId: "B", weight: 3 },
     ];
-    expect(splitByWeights(1n, shares)).toEqual(
+    expect(splitByWeights(1n, weights)).toEqual(
       new Map([
         ["A", 0n],
         ["B", 1n],
@@ -56,7 +56,7 @@ describe("splitByWeights", () => {
     );
   });
 
-  it("rejects an empty list of shares", () => {
+  it("rejects an empty list of weights", () => {
     expect(() => splitByWeights(100n, [])).toThrow(RangeError);
   });
 
@@ -74,13 +74,13 @@ describe("splitByWeights", () => {
       minLength: 1,
       maxLength: 8,
     });
-    const toShares = (ws: number[]) =>
+    const toWeights = (ws: number[]) =>
       ws.map((weight, i) => ({ partnerId: `p${i}`, weight }));
 
     it("always sums exactly to the amount", () => {
       fc.assert(
         fc.property(amounts, weights, (amount, ws) => {
-          const parts = [...splitByWeights(amount, toShares(ws)).values()];
+          const parts = [...splitByWeights(amount, toWeights(ws)).values()];
           expect(parts.reduce((a, b) => a + b, 0n)).toBe(amount);
         }),
       );
@@ -96,7 +96,7 @@ describe("splitByWeights", () => {
           const parts = [
             ...splitByWeights(
               amount,
-              toShares(Array<number>(count).fill(weight)),
+              toWeights(Array<number>(count).fill(weight)),
             ).values(),
           ];
           const max = parts.reduce((a, b) => (a > b ? a : b));
@@ -106,11 +106,11 @@ describe("splitByWeights", () => {
       );
     });
 
-    it("keeps every part less than 1 cent from its exact share", () => {
+    it("keeps every part less than 1 cent from its exact part", () => {
       fc.assert(
         fc.property(amounts, weights, (amount, ws) => {
           const total = BigInt(ws.reduce((a, b) => a + b, 0));
-          const parts = [...splitByWeights(amount, toShares(ws)).values()];
+          const parts = [...splitByWeights(amount, toWeights(ws)).values()];
           parts.forEach((part, i) => {
             // |part - amount*w/total| < 1  <=>  |part*total - amount*w| < total
             const gap = part * total - amount * BigInt(ws[i]!);
