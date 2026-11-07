@@ -1,5 +1,5 @@
 // Balance formula and golden rule (plan section 3, "O acerto").
-import { splitByWeights, type Share } from "./split.js";
+import { splitByWeights, type Weight } from "./split.js";
 
 /** Who is on one side of an entry: a partner's pocket or a company account. */
 export type Party = { partner: string } | { account: string };
@@ -22,7 +22,7 @@ export interface PartnerBalance {
   contributions: bigint;
   withdrawals: bigint;
   /** This partner's part of the result, by weight. */
-  share: bigint;
+  resultPart: bigint;
   balance: bigint;
 }
 
@@ -34,10 +34,10 @@ export interface Balances {
 
 export function computeBalances(
   entries: readonly Entry[],
-  shares: readonly Share[],
+  weights: readonly Weight[],
 ): Balances {
-  const contributions = new Map(shares.map((s) => [s.partnerId, 0n]));
-  const withdrawals = new Map(shares.map((s) => [s.partnerId, 0n]));
+  const contributions = new Map(weights.map((s) => [s.partnerId, 0n]));
+  const withdrawals = new Map(weights.map((s) => [s.partnerId, 0n]));
   const accounts = new Map<string, bigint>();
   let result = 0n;
 
@@ -85,15 +85,20 @@ export function computeBalances(
     }
   }
 
-  const split = splitByWeights(result, shares);
+  const split = splitByWeights(result, weights);
   const partners = new Map(
-    shares.map(({ partnerId: id }) => {
+    weights.map(({ partnerId: id }) => {
       const c = contributions.get(id)!;
       const w = withdrawals.get(id)!;
-      const share = split.get(id)!;
+      const resultPart = split.get(id)!;
       return [
         id,
-        { contributions: c, withdrawals: w, share, balance: c - w + share },
+        {
+          contributions: c,
+          withdrawals: w,
+          resultPart,
+          balance: c - w + resultPart,
+        },
       ];
     }),
   );
@@ -104,12 +109,12 @@ function add(totals: Map<string, bigint>, id: string, amount: bigint): void {
   totals.set(id, (totals.get(id) ?? 0n) + amount);
 }
 
-/** Partners come from the shares; an unknown one would vanish from the sums. */
+/** Partners come from the weights; an unknown one would vanish from the sums. */
 function addToPartner(
   totals: Map<string, bigint>,
   id: string,
   amount: bigint,
 ): void {
-  if (!totals.has(id)) throw new RangeError(`Partner ${id} has no share`);
+  if (!totals.has(id)) throw new RangeError(`Partner ${id} has no weight`);
   add(totals, id, amount);
 }

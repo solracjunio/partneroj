@@ -7,7 +7,7 @@ import {
   type LedgerEntry,
 } from "./reversal.js";
 
-const shares = [
+const weights = [
   { partnerId: "A", weight: 1 },
   { partnerId: "B", weight: 1 },
   { partnerId: "C", weight: 1 },
@@ -33,7 +33,7 @@ function refusal(action: () => unknown): DomainErrorCode | undefined {
 
 describe("createReversal", () => {
   it("keeps the type and category and inverts the sign", () => {
-    const reversal = createReversal([cement], shares, {
+    const reversal = createReversal([cement], weights, {
       id: "e2",
       originalId: "e1",
       reason: "  typed the wrong amount ",
@@ -52,7 +52,7 @@ describe("createReversal", () => {
   it.each(["", "   "])("refuses a reversal without a reason (%j)", (reason) => {
     expect(
       refusal(() =>
-        createReversal([cement], shares, {
+        createReversal([cement], weights, {
           id: "e2",
           originalId: "e1",
           reason,
@@ -64,7 +64,7 @@ describe("createReversal", () => {
   it("refuses to reverse an entry that does not exist", () => {
     expect(
       refusal(() =>
-        createReversal([cement], shares, {
+        createReversal([cement], weights, {
           id: "e2",
           originalId: "nope",
           reason: "duplicate",
@@ -74,7 +74,7 @@ describe("createReversal", () => {
   });
 
   describe("after a first reversal", () => {
-    const first = createReversal([cement], shares, {
+    const first = createReversal([cement], weights, {
       id: "e2",
       originalId: "e1",
       reason: "duplicate",
@@ -84,7 +84,7 @@ describe("createReversal", () => {
     it("refuses to reverse the same entry twice", () => {
       expect(
         refusal(() =>
-          createReversal(ledger, shares, {
+          createReversal(ledger, weights, {
             id: "e3",
             originalId: "e1",
             reason: "again",
@@ -96,7 +96,7 @@ describe("createReversal", () => {
     it("refuses to reverse a reversal", () => {
       expect(
         refusal(() =>
-          createReversal(ledger, shares, {
+          createReversal(ledger, weights, {
             id: "e3",
             originalId: "e2",
             reason: "undo the undo",
@@ -119,7 +119,7 @@ describe("createReversal", () => {
     ];
     expect(
       refusal(() =>
-        createReversal(ledger, shares, {
+        createReversal(ledger, weights, {
           id: "e2",
           originalId: "o1",
           reason: "wrong account",
@@ -135,7 +135,7 @@ describe("assertCanRecord", () => {
   ];
   const spend = (amount: bigint) =>
     refusal(() =>
-      assertCanRecord(opened, shares, {
+      assertCanRecord(opened, weights, {
         type: "expense",
         amount,
         from: { account: "X" },
@@ -152,7 +152,7 @@ describe("assertCanRecord", () => {
 });
 
 describe("statusOf", () => {
-  const reversal = createReversal([cement], shares, {
+  const reversal = createReversal([cement], weights, {
     id: "e2",
     originalId: "e1",
     reason: "duplicate",

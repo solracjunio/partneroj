@@ -9,6 +9,7 @@ O código está em inglês e a interface em português (ver [ADR 0001](adr/0001-
 | `Partner` | Sócio | Membro que lança, vota e participa do acerto |
 | `Project` | Projeto | Uma obra ou um negócio contínuo |
 | `weight` | Cota (peso) | A parte de cada sócio, como peso inteiro (1:1:1 para cotas iguais). Não usar `share` |
+| `resultPart` | Rateio (parte do resultado) | A parte do resultado do projeto que cabe ao sócio, em centavos, calculada pelos pesos. Não usar `share` |
 | `Account` | Conta | Conta bancária ou caixa da sociedade |
 | `Entry` | Lançamento | Um movimento de dinheiro, imutável |
 | `Reversal` | Estorno | Lançamento que anula outro, com sinal invertido |

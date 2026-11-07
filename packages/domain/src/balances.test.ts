@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { computeBalances, type Entry } from "./balances.js";
 
 // In draw order: A gets the leftover cent.
-const shares = [
+const weights = [
   { partnerId: "A", weight: 1 },
   { partnerId: "B", weight: 1 },
   { partnerId: "C", weight: 1 },
@@ -11,7 +11,7 @@ const shares = [
 
 const balanceOf = (entries: Entry[]) =>
   Object.fromEntries(
-    [...computeBalances(entries, shares).partners].map(([id, b]) => [
+    [...computeBalances(entries, weights).partners].map(([id, b]) => [
       id,
       b.balance,
     ]),
@@ -48,13 +48,13 @@ describe("computeBalances", () => {
       { type: "withdrawal", amount: 10000n, account: "X", partner: "A" },
       { type: "reimbursement", amount: 5000n, account: "X", partner: "C" },
     ];
-    const { partners, accounts } = computeBalances(entries, shares);
+    const { partners, accounts } = computeBalances(entries, weights);
     // Contributions − withdrawals + a third of the −300.00 result.
     expect(balanceOf(entries)).toEqual({ A: 70000n, B: 50000n, C: -15000n });
     expect(partners.get("A")).toEqual({
       contributions: 90000n,
       withdrawals: 10000n,
-      share: -10000n,
+      resultPart: -10000n,
       balance: 70000n,
     });
     expect(accounts).toEqual(
@@ -65,11 +65,11 @@ describe("computeBalances", () => {
     );
   });
 
-  it("rejects an entry for a partner without a share", () => {
+  it("rejects an entry for a partner without a weight", () => {
     const entries: Entry[] = [
       { type: "expense", amount: 100n, from: { partner: "Z" } },
     ];
-    expect(() => computeBalances(entries, shares)).toThrow(RangeError);
+    expect(() => computeBalances(entries, weights)).toThrow(RangeError);
   });
 
   it("cancels an entry with its reversal: same entry, inverted sign", () => {
@@ -113,7 +113,7 @@ describe("computeBalances", () => {
     it("keeps the golden rule: partners add up to the accounts", () => {
       fc.assert(
         fc.property(fc.array(entry, { maxLength: 30 }), (entries) => {
-          const { partners, accounts } = computeBalances(entries, shares);
+          const { partners, accounts } = computeBalances(entries, weights);
           const ofPartners = sum([...partners.values()].map((p) => p.balance));
           expect(ofPartners).toBe(sum(accounts.values()));
         }),
@@ -126,7 +126,7 @@ describe("computeBalances", () => {
           const reversals = entries.map((e) => ({ ...e, amount: -e.amount }));
           const { result, partners, accounts } = computeBalances(
             [...entries, ...reversals],
-            shares,
+            weights,
           );
           expect(result).toBe(0n);
           for (const p of partners.values()) expect(p.balance).toBe(0n);

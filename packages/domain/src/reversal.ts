@@ -1,7 +1,7 @@
 // Immutable entries and their reversals (plan section 3, "Imutabilidade, estorno e períodos").
 import { computeBalances, type Entry } from "./balances.js";
 import { DomainError } from "./errors.js";
-import type { Share } from "./split.js";
+import type { Weight } from "./split.js";
 
 /** An entry as recorded: never updated or deleted, only reversed. */
 export type LedgerEntry = Entry & {
@@ -21,7 +21,7 @@ export interface ReversalRequest {
 
 export function createReversal(
   ledger: readonly LedgerEntry[],
-  shares: readonly Share[],
+  weights: readonly Weight[],
   request: ReversalRequest,
 ): LedgerEntry {
   const reason = request.reason.trim();
@@ -42,17 +42,17 @@ export function createReversal(
     reversalOf: original.id,
     reason,
   };
-  assertCanRecord(ledger, shares, reversal);
+  assertCanRecord(ledger, weights, reversal);
   return reversal;
 }
 
 /** Refuses an entry or reversal that would leave any account below zero. */
 export function assertCanRecord(
   ledger: readonly Entry[],
-  shares: readonly Share[],
+  weights: readonly Weight[],
   entry: Entry,
 ): void {
-  const { accounts } = computeBalances([...ledger, entry], shares);
+  const { accounts } = computeBalances([...ledger, entry], weights);
   for (const [account, balance] of accounts) {
     if (balance < 0n)
       throw new DomainError(
