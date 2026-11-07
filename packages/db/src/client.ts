@@ -5,8 +5,9 @@ import * as schema from "./schema.js";
 export type Database = NodePgDatabase<typeof schema> & { $client: pg.Pool };
 
 /**
- * One pool per process. pg-boss will share it, so a job can be sent on the
- * same connection, and in the same transaction, as the entry it announces.
+ * One pool per process. pg-boss keeps its own pool for its maintenance,
+ * but a job that announces an entry is sent on the entry's transaction
+ * (see jobs.ts).
  */
 export function createDatabase(connectionString: string): Database {
   const pool = new pg.Pool({ connectionString });

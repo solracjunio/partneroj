@@ -8,6 +8,8 @@ import { runMigrations } from "./migrate.js";
 
 export interface TestDatabase {
   db: Database;
+  /** For clients with their own pool, like pg-boss. */
+  connectionString: string;
   stop(): Promise<void>;
 }
 
@@ -16,10 +18,12 @@ export async function startTestDatabase(): Promise<TestDatabase> {
   const container: StartedPostgreSqlContainer = await new PostgreSqlContainer(
     "postgres:18-alpine",
   ).start();
-  const db = createDatabase(container.getConnectionUri());
+  const connectionString = container.getConnectionUri();
+  const db = createDatabase(connectionString);
   await runMigrations(db);
   return {
     db,
+    connectionString,
     async stop() {
       await db.$client.end();
       await container.stop();
