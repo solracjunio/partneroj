@@ -26,3 +26,18 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     },
   };
 }
+
+/**
+ * The SQLSTATE code a query failed with, e.g. 23505 unique_violation or
+ * 23514 check_violation. Drizzle wraps the driver error; the code is on
+ * its cause.
+ */
+export async function pgErrorCode(promise: Promise<unknown>): Promise<string> {
+  try {
+    await promise;
+  } catch (error) {
+    const cause = (error as { cause?: { code?: string } }).cause;
+    return cause?.code ?? "no code";
+  }
+  return "no error";
+}

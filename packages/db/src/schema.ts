@@ -2,6 +2,8 @@
 // snake_case in Postgres (casing option in drizzle.config.ts and client.ts).
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
+  bigint,
   check,
   date,
   integer,
@@ -84,6 +86,113 @@ export const weights = pgTable(
     unique("weights_draw_position_per_project_unique").on(
       t.projectId,
       t.drawPosition,
+    ),
+  ],
+);
+
+/**
+ * A bank account or cash box of the partnership. There is no balance
+ * column: the balance is always derived from entries, so an account
+ * always starts at zero and money in it always has an owner (ADR 0007).
+ */
+export const accounts = pgTable("accounts", {
+  id: id(),
+  partnershipId: uuid()
+    .notNull()
+    .references(() => partnerships.id),
+  name: text().notNull(),
+  createdAt: createdAt(),
+});
+
+export const categories = pgTable(
+  "categories",
+  {
+    id: id(),
+    partnershipId: uuid()
+      .notNull()
+      .references(() => partnerships.id),
+    name: text().notNull(),
+  },
+  (t) => [
+    unique("categories_name_per_partnership_unique").on(
+      t.partnershipId,
+      t.name,
+    ),
+  ],
+);
+
+/** Same names as Entry["type"] in packages/domain. */
+export const entryType = pgEnum("entry_type", [
+  "expense",
+  "income",
+  "contribution",
+  "in-kind",
+  "withdrawal",
+  "reimbursement",
+  "transfer",
+  "opening",
+]);
+
+export const entrySource = pgEnum("entry_source", [
+  "app",
+  "import",
+  "ballot",
+  "ai",
+]);
+
+/**
+ * A money flow (plan section 3). Never updated or deleted: a mistake is
+ * undone by a reversal, a new row with the sign inverted (ADR 0006).
+ * There is no status column; the status is derived from reversals and
+ * open ballots.
+ *
+ * Each side is a member's pocket, an account, or nobody (money from or to
+ * outside, like an expense or an income). Which sides each type needs is
+ * checked by the domain before the insert.
+ */
+export const entries = pgTable(
+  "entries",
+  {
+    id: id(),
+    projectId: uuid()
+      .notNull()
+      .references(() => projects.id),
+    type: entryType().notNull(),
+    /** Cents (ADR 0005). Positive on an entry, negative on its reversal. */
+    amount: bigint({ mode: "bigint" }).notNull(),
+    /** When the money moved. */
+    occurredOn: date({ mode: "string" }).notNull(),
+    /** Which period it belongs to, by accrual (plan section 3). */
+    accrualOn: date({ mode: "string" }).notNull(),
+    fromMemberId: uuid().references(() => members.id),
+    fromAccountId: uuid().references(() => accounts.id),
+    toMemberId: uuid().references(() => members.id),
+    toAccountId: uuid().references(() => accounts.id),
+    categoryId: uuid().references(() => categories.id),
+    description: text(),
+    authorId: uuid()
+      .notNull()
+      .references(() => members.id),
+    source: entrySource().notNull(),
+    reversalOf: uuid().references((): AnyPgColumn => entries.id),
+    reversalReason: text(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check(
+      "entries_one_party_per_side",
+      sql`num_nonnulls(${t.fromMemberId}, ${t.fromAccountId}) <= 1
+        and num_nonnulls(${t.toMemberId}, ${t.toAccountId}) <= 1`,
+    ),
+    check(
+      "entries_amount_sign",
+      sql`(${t.reversalOf} is null and ${t.amount} > 0)
+        or (${t.reversalOf} is not null and ${t.amount} < 0)`,
+    ),
+    unique("entries_reversal_of_unique").on(t.reversalOf),
+    check(
+      "entries_reversal_reason_required",
+      sql`${t.reversalOf} is null or (${t.reversalReason} is not null and trim(${t.reversalReason}) <> '')`,
     ),
   ],
 );
