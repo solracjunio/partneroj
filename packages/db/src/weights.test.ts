@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { members, partnerships, projects, weights } from "./schema.js";
-import { startTestDatabase, type TestDatabase } from "./testing.js";
+import {
+  pgErrorCode,
+  startTestDatabase,
+  type TestDatabase,
+} from "./testing.js";
 
 let t: TestDatabase;
 beforeAll(async () => {
@@ -33,17 +37,6 @@ async function seed() {
     ])
     .returning();
   return { projectId: project!.id, a: a!.id, b: b!.id };
-}
-
-/** Drizzle wraps the driver error; the Postgres code is on its cause. */
-async function pgErrorCode(promise: Promise<unknown>): Promise<string> {
-  try {
-    await promise;
-  } catch (error) {
-    const cause = (error as { cause?: { code?: string } }).cause;
-    return cause?.code ?? "no code";
-  }
-  return "no error";
 }
 
 // SQLSTATE codes: 23514 check_violation, 23505 unique_violation.
