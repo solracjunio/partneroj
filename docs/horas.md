@@ -25,7 +25,7 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 05/11/2026 | 1A | 1,0 h* | `packages/domain` em TDD com testes de propriedade: rateio por pesos e maior resto com negativos (PR #9), fórmula do saldo e regra de ouro (PR #10), regras do estorno, status derivado e totais por categoria (PR #11) | Sim |
 | 05/11/2026 | 1A | 1,0 h* | Resumo do bloco para entrevista; ADRs 0005 a 0007 (centavos em `bigint`, estorno e abertura), escritos em conversa com a IA; quiz do bloco 1A (2/5) e resumo de resultado × contribuição | Sim |
 | 07/11/2026 | 2A | 2,5 h* | `packages/db` com Drizzle e Testcontainers (Postgres 18): sociedades, membros, projetos e pesos (PR #14); nomes do domínio alinhados ao glossário, `Weight` e `resultPart` (PR #15); lançamentos, contas e categorias, com estorno único e motivo obrigatório (PR #16); trigger que recusa `UPDATE`, `DELETE` e `TRUNCATE` em lançamentos (PR #17); prova do pg-boss na transação, com rollback desfazendo o job (PR #18). Bloco em modo Learning: as restrições, o trigger e o `send` na transação foram escritos pelo desenvolvedor | Sim |
-| 07/11/2026 | 2A | 1,0 h* | Comprovantes (tipo, tamanho e SHA-256), convites e sessões só com hash do token, e `consumeInvite` atômico contra dois toques simultâneos (PR #20); feed de atividades com marcação de leitura, auditoria só de inserção por trigger e `recordEntry` gravando lançamento, feed, auditoria e job numa transação (PR #21). Modo Learning: as condições do convite, o trigger da auditoria e a linha do feed foram escritos pelo desenvolvedor | Sim |
+| 07/11/2026 | 2A | 1,0 h* | Comprovantes (tipo, tamanho e SHA-256), convites e sessões só com hash do token, e `consumeInvite` atômico contra dois toques simultâneos (PR #20); feed de atividades com marcação de leitura, auditoria só de inserção por trigger e `recordEntry` gravando lançamento, feed, auditoria e job numa transação (PR #21). Modo Learning: as condições do convite, o trigger da auditoria e a linha do feed foram escritos pelo desenvolvedor; quiz do bloco 2A (3/5) | Sim |
 
 ## Total por bloco
 
@@ -33,7 +33,7 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 |-------|----------|------|
 | 0. Validação e base | 18 h | 15,0 h |
 | 1A. Domínio dos sócios | 18 h | 2,0 h |
-| 2A. Persistência dos sócios | 15 h | 3,5 h (falta o quiz) |
+| 2A. Persistência dos sócios | 15 h | 3,5 h |
 | Infra de produção | 12 h | |
 | Versão para os sócios | 30 h | |
 | Importação da planilha | 3 h | |
