@@ -1,4 +1,4 @@
-# Monthly restore test (plan section 11, docs/operacao.md). Installed to
+# Weekly restore test (plan section 11, docs/operacao.md). Installed to
 # /etc/systemd/system/ and started by partneroj-restore-check.timer.
 [Unit]
 Description=Partneroj restore check (latest backup into a clean Postgres)

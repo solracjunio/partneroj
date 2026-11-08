@@ -11,6 +11,7 @@ Como colocar o Partneroj no ar e mantê-lo funcionando. O stack de produção fi
 | `api` | API (NestJS), atrás do Caddy em `/api/` | `partneroj_api` (papel `partneroj_app`) |
 | `worker` | Jobs do pg-boss | `partneroj_api` |
 | `caddy` | HTTPS automático, o app web em `/` e o protótipo do bloco 0 em `/prototipo/` | — |
+| `uptime-kuma` | Monitoramento e alertas no celular, pelo ntfy. O painel só abre por túnel SSH | — |
 | `backup` | Não fica no ar. Os timers do systemd e o `deploy.sh` o chamam para fazer backup ou testar a restauração | `partneroj` |
 
 A API e o worker nunca usam o dono das tabelas. O papel `partneroj_app` não pode alterar nem apagar lançamentos e auditoria, nem desligar os triggers que protegem essas tabelas (migration `0006`). O superusuário pode, e isso está declarado no plano.
@@ -82,11 +83,13 @@ Cada snapshot guarda:
 | --- | --- | --- |
 | Toda noite, 03:30 (Brasília) | Backup `daily` | `partneroj-backup.timer` |
 | Antes de cada migration | Backup `pre-deploy` | `deploy.sh` |
-| Dia 1 de cada mês, 05:00 | Teste de restauração | `partneroj-restore-check.timer` |
+| Todo domingo, 05:00 | Teste de restauração | `partneroj-restore-check.timer` |
 
 **Retenção** (plano, seção 11): 7 diários, 4 semanais e 12 mensais.
 
-> **Ainda falta (neste bloco):** a cópia para o PC de casa (WireGuard e rest-server), o backup dos arquivos de comprovantes (quando o upload existir) e o alerta do Uptime Kuma quando um timer falhar. Até lá, confira os timers com `systemctl list-timers 'partneroj-*'` e as falhas com `systemctl --failed`.
+O teste de restauração roda toda semana, mais que o mensal do plano. O Uptime Kuma não aceita um intervalo de heartbeat maior que cerca de 24 dias, e um teste mensal daria alarme falso todo mês.
+
+> **Ainda falta (neste bloco):** a cópia para o PC de casa (WireGuard e rest-server) e o backup dos arquivos de comprovantes (quando o upload existir).
 
 ### Preparar (uma vez)
 
@@ -152,6 +155,55 @@ Só em caso de perda: servidor novo, banco corrompido ou migration que estragou 
    ```
 4. Fazer o deploy de novo (`deploy.sh`). O `migrate` aplica a senha do `partneroj_api`, que o backup não guarda.
 5. Conferir o app e, quando existir, a regra de ouro.
+
+## Monitoramento
+
+O **Uptime Kuma** roda na VPS e avisa no celular pelo **ntfy**. O que ele vigia:
+
+| Monitor | Tipo | Alerta quando |
+| --- | --- | --- |
+| API | HTTP em `https://partneroj.com.br/api/health`, a cada 60 s | a API não responde, ou o certificado vence em menos de 14 dias |
+| Backup diário | Push (heartbeat), intervalo de 26 h | um backup falha, ou nenhum chega em 26 h |
+| Teste de restauração | Push (heartbeat), intervalo de 8 dias | um teste falha, ou nenhum chega em 8 dias |
+
+O backup e o teste avisam o Kuma ao terminar (`up`) ou ao falhar (`down`). Se um deles nem chegar a rodar (container quebrado, timer parado, servidor desligado), o aviso que não chega dispara o alerta do mesmo jeito.
+
+> **Limite conhecido:** o Kuma está na mesma VPS. Se a VPS inteira cair, ele cai junto e **não avisa**. Isso se fecha com um monitor fora do servidor, por exemplo no PC de casa quando o WireGuard existir.
+
+### Abrir o painel
+
+O painel não fica na internet. Ele escuta só em `127.0.0.1:3001` do servidor, e você chega até ele por um túnel SSH:
+
+```sh
+ssh -N -L 3001:localhost:3001 partneroj
+# e abra http://localhost:3001 no navegador; Ctrl+C fecha o túnel
+```
+
+### Configurar (uma vez)
+
+Os nomes dos menus abaixo são os da tradução para português e podem variar um pouco entre versões do Kuma.
+
+1. **No celular:** instale o app **ntfy** (Android ou iOS) e assine um tópico com nome **longo e aleatório**, por exemplo o resultado de `openssl rand -hex 12` com o prefixo `partneroj-`. Quem souber o nome do tópico vê os alertas e pode mandar alertas falsos, por isso ele funciona como uma senha.
+2. **No painel**, na primeira vez: escolha o banco **SQLite** (embutido, guardado no volume `uptime-kuma-data`) e crie o usuário administrador com uma senha forte. Guarde a senha no gerenciador de senhas.
+3. **Configurações → Notificações → Configurar notificação:** tipo **ntfy**, servidor `https://ntfy.sh` e o tópico do passo 1. Marque **Ativado por padrão** e **Aplicar em todos os monitores existentes**. Clique em **Testar**: a notificação deve chegar no celular.
+4. **Adicionar monitor**, três vezes:
+   - **HTTP(s)**, nome `API`, URL `https://partneroj.com.br/api/health`, intervalo 60 s, 2 tentativas. Em Avançado, marque **Notificação de vencimento do certificado**.
+   - **Push**, nome `Backup diário`, intervalo de heartbeat `93600` (26 h).
+   - **Push**, nome `Teste de restauração`, intervalo de heartbeat `691200` (8 dias).
+5. Cada monitor **Push** mostra uma URL `http://localhost:3001/api/push/<token>?status=up&msg=OK&ping=`. No `.env` do servidor, guarde só o começo dela, com o host trocado pelo nome do serviço:
+
+   ```sh
+   BACKUP_PUSH_URL=http://uptime-kuma:3001/api/push/<token do backup>
+   RESTORE_CHECK_PUSH_URL=http://uptime-kuma:3001/api/push/<token do teste>
+   ```
+
+   O token é um segredo: quem tiver um pode fingir que o backup rodou.
+
+6. Rodar um backup e um teste na hora, e conferir que os dois monitores ficam verdes:
+
+   ```sh
+   sudo systemctl start partneroj-backup.service partneroj-restore-check.service
+   ```
 
 ## Trocar a senha da aplicação
 
