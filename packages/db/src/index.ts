@@ -1,5 +1,6 @@
 // Postgres schema, client and migrations, shared by the API and the worker.
 export { createDatabase, type Database } from "./client.js";
+export { consumeInvite } from "./invites.js";
 export {
   queueEntryNotification,
   queues,

@@ -67,11 +67,12 @@ describe("entries are immutable", () => {
     expect(await pgErrorCode(remove)).toBe("23001");
   });
 
-  it("refuses a TRUNCATE", async () => {
+  it("refuses a TRUNCATE, even with CASCADE", async () => {
     await seedExpense();
-    expect(await pgErrorCode(t.db.execute(sql`truncate entries`))).toBe(
-      "23001",
-    );
+    // Without CASCADE the foreign keys to entries refuse it first (0A000);
+    // CASCADE gets past them, so only the trigger stands in the way.
+    const truncate = t.db.execute(sql`truncate entries cascade`);
+    expect(await pgErrorCode(truncate)).toBe("23001");
   });
 
   it("keeps the entry unchanged", async () => {
