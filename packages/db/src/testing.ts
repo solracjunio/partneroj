@@ -31,6 +31,29 @@ export async function startTestDatabase(): Promise<TestDatabase> {
   };
 }
 
+export interface AppConnection {
+  db: Database;
+  connectionString: string;
+}
+
+/**
+ * Connects as the app does in production: a login user in the
+ * partneroj_app role (migration 0006), not the owner of the tables.
+ * Call it once per test database; the caller ends `db.$client`.
+ */
+export async function connectAsApp(t: TestDatabase): Promise<AppConnection> {
+  const user = "partneroj_test_app";
+  const password = "test-only";
+  await t.db.$client.query(
+    `CREATE ROLE ${user} LOGIN PASSWORD '${password}' IN ROLE partneroj_app`,
+  );
+  const url = new URL(t.connectionString);
+  url.username = user;
+  url.password = password;
+  const connectionString = url.toString();
+  return { db: createDatabase(connectionString), connectionString };
+}
+
 /**
  * The SQLSTATE code a query failed with, e.g. 23505 unique_violation or
  * 23514 check_violation. Drizzle wraps the driver error; the code is on
