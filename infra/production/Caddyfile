@@ -1,0 +1,27 @@
+{$DOMAIN} {
+	# Nothing here is for search engines: the app is private to the partners.
+	header X-Robots-Tag "noindex"
+
+	# The API, without the /api prefix (Nest serves /health, not /api/health).
+	handle_path /api/* {
+		request_body {
+			max_size 10MB
+		}
+		reverse_proxy api:3000
+	}
+
+	# The block 0 prototype, kept as a static page.
+	redir /prototipo /prototipo/
+	handle_path /prototipo/* {
+		root * /srv/prototipo
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	# The web app: a single page, so unknown paths fall back to index.html.
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+}

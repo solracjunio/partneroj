@@ -1,0 +1,17 @@
+# Build context of infra/production/Dockerfile: the repository root.
+# Everything here stays out of the images.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+.git
+.devbox
+.claude
+.env
+**/.env
+**/.env.*
+!**/.env.example
+**/data
+docs
+infra/prototype-test
+infra/smoke
+prototype/README.md

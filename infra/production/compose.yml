@@ -1,0 +1,94 @@
+# Production stack on the VPS. Deployed by infra/production/deploy.sh;
+# see docs/operacao.md. Secrets come from .env next to this file (never in
+# git; start from .env.example).
+#
+# Only Caddy publishes ports: Docker-published ports bypass ufw, so
+# Postgres, the API and the worker are reachable only inside this network.
+name: partneroj
+
+x-app: &app
+  build:
+    context: ../..
+    dockerfile: infra/production/Dockerfile
+    target: app
+  image: partneroj-app:latest
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  environment:
+    # The restricted login (packages/db/src/prepare.ts), never the owner.
+    DATABASE_URL: postgres://partneroj_api:${APP_DB_PASSWORD:?}@postgres:5432/partneroj
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      # The owner of the tables. Only the migrate step connects as it.
+      POSTGRES_USER: partneroj
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: partneroj
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U partneroj -d partneroj"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Runs once per deploy, then exits: migrations, app login, pg-boss.
+  migrate:
+    <<: *app
+    restart: "no"
+    command: ["node", "packages/db/dist/prepare-cli.js"]
+    environment:
+      OWNER_DATABASE_URL: postgres://partneroj:${POSTGRES_PASSWORD:?}@postgres:5432/partneroj
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    command: ["node", "apps/api/dist/main.js"]
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  worker:
+    <<: *app
+    command: ["node", "apps/worker/dist/main.js"]
+
+  caddy:
+    build:
+      context: ../..
+      dockerfile: infra/production/Dockerfile
+      target: web
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

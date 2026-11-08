@@ -1,6 +1,6 @@
 # Prototype guided test (block 0)
 
-Serves the clickable prototype and collects the events of a guided test, so a partner can test it alone on their own phone. Like `infra/smoke`, it is throwaway: the production compose comes in block 4.
+Serves the clickable prototype and collects the events of a guided test, so a partner can test it alone on their own phone. Like `infra/smoke`, it is retired: since the production stack (`infra/production`) took over ports 80 and 443, its Caddy serves the prototype and the collector no longer runs.
 
 - **Caddy** serves `prototype/` at `/prototipo/` and forwards `POST /coleta` to the collector (bodies above 64 KB are cut).
 - **collector.js** appends each batch of events to `data/<label>.jsonl`. It has no dependencies.
