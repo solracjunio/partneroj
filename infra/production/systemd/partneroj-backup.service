@@ -1,0 +1,12 @@
+# Daily backup of the database (docs/operacao.md). Installed to
+# /etc/systemd/system/ and started by partneroj-backup.timer.
+[Unit]
+Description=Partneroj backup (pg_dump into the local restic repository)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=solrac
+WorkingDirectory=/home/solrac/partneroj
+ExecStart=/usr/bin/docker compose -f infra/production/compose.yml run --rm backup backup.sh

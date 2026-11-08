@@ -1,7 +1,7 @@
 # Production images, built on the server from the repository root:
 #   docker compose -f infra/production/compose.yml build
-# Two targets: `app` (API, worker and the migrate step share it) and `web`
-# (Caddy with the built front end and the prototype baked in).
+# Three targets: `app` (API, worker and the migrate step share it), `web`
+# (Caddy with the built front end and the prototype baked in) and `backup`.
 
 FROM node:26-alpine AS pnpm
 # Node 25+ no longer ships corepack. Keep in sync with "packageManager".
@@ -44,3 +44,10 @@ FROM caddy:2 AS web
 COPY infra/production/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /repo/apps/web/dist /srv/web
 COPY prototype /srv/prototipo
+
+# Backups: pg_dump and the Postgres server (for restore checks) come with
+# the image, at the same version as production; restic is added.
+FROM postgres:18-alpine AS backup
+RUN apk add --no-cache restic
+COPY infra/production/backup/backup.sh infra/production/backup/restore-check.sh /usr/local/bin/
+USER postgres
