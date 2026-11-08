@@ -2,8 +2,9 @@
 # see docs/operacao.md. Secrets come from .env next to this file (never in
 # git; start from .env.example).
 #
-# Only Caddy publishes ports: Docker-published ports bypass ufw, so
-# Postgres, the API and the worker are reachable only inside this network.
+# Only Caddy publishes ports to the internet: Docker-published ports
+# bypass ufw. Uptime Kuma publishes on 127.0.0.1 only, for an SSH tunnel;
+# everything else is reachable only inside this network.
 name: partneroj
 
 x-app: &app
@@ -112,6 +113,9 @@ services:
       RESTIC_REPOSITORY: /restic
       RESTIC_PASSWORD: ${RESTIC_PASSWORD:?}
       RESTIC_CACHE_DIR: /tmp/restic-cache
+      # Push monitors of Uptime Kuma; empty until they are created.
+      BACKUP_PUSH_URL: ${BACKUP_PUSH_URL:-}
+      RESTORE_CHECK_PUSH_URL: ${RESTORE_CHECK_PUSH_URL:-}
     volumes:
       # A host directory, not a volume: `docker compose down -v` removes
       # volumes, and must never take the backups along with the database.
@@ -120,7 +124,20 @@ services:
       postgres:
         condition: service_healthy
 
+  # Alerts on the phone through ntfy (docs/operacao.md). The panel is
+  # published on the server's loopback only: reach it through an SSH
+  # tunnel, never from the internet.
+  uptime-kuma:
+    image: louislam/uptime-kuma:2.5.6
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+
 volumes:
+  uptime-kuma-data:
   postgres-data:
   caddy-data:
   caddy-config:

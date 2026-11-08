@@ -1,9 +1,10 @@
 [Unit]
-Description=Partneroj restore check, every month
+Description=Partneroj restore check, every week
 
 [Timer]
-# The 1st of each month, after that night's backup.
-OnCalendar=*-*-01 05:00:00 America/Sao_Paulo
+# Every Sunday, after that night's backup. Weekly rather than the plan's
+# monthly: Uptime Kuma caps a push interval at about 24 days.
+OnCalendar=Sun *-*-* 05:00:00 America/Sao_Paulo
 Persistent=true
 
 [Install]

@@ -49,5 +49,6 @@ COPY prototype /srv/prototipo
 # the image, at the same version as production; restic is added.
 FROM postgres:18-alpine AS backup
 RUN apk add --no-cache restic
-COPY infra/production/backup/backup.sh infra/production/backup/restore-check.sh /usr/local/bin/
+COPY infra/production/backup/backup.sh infra/production/backup/restore-check.sh \
+  infra/production/backup/heartbeat.sh /usr/local/bin/
 USER postgres

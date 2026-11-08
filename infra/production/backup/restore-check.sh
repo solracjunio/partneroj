@@ -11,7 +11,11 @@ work=/tmp/restore
 rm -rf "$work"
 mkdir -p "$work"
 
+# shellcheck source=heartbeat.sh
+source "$(dirname "$0")/heartbeat.sh"
 cleanup() {
+  local code=$?
+  if [ "$code" -ne 0 ]; then heartbeat "${RESTORE_CHECK_PUSH_URL:-}" down; fi
   pg_ctl --pgdata="$work/pgdata" --mode=immediate stop >/dev/null 2>&1 || true
   rm -rf "$work"
 }
@@ -81,3 +85,4 @@ if [ "$failed" -ne 0 ]; then
   exit 1
 fi
 echo "restore check passed"
+heartbeat "${RESTORE_CHECK_PUSH_URL:-}" up

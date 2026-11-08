@@ -11,7 +11,14 @@ tag="${1:-daily}"
 work=/tmp/backup
 rm -rf "$work"
 mkdir -p "$work"
-trap 'rm -rf "$work"' EXIT
+# shellcheck source=heartbeat.sh
+source "$(dirname "$0")/heartbeat.sh"
+on_exit() {
+  local code=$?
+  rm -rf "$work"
+  if [ "$code" -ne 0 ]; then heartbeat "${BACKUP_PUSH_URL:-}" down; fi
+}
+trap on_exit EXIT
 
 # First run: create the repository. Checked by file, not by opening it,
 # so a wrong password fails below as a wrong password.
@@ -33,3 +40,4 @@ restic forget --host partneroj --group-by host \
   --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune
 restic check
 echo "backup done ($tag)"
+heartbeat "${BACKUP_PUSH_URL:-}" up
