@@ -2,6 +2,7 @@
 export { createDatabase, type Database } from "./client.js";
 export { consumeInvite } from "./invites.js";
 export {
+  installJobQueue,
   queueEntryNotification,
   queues,
   startJobQueue,
