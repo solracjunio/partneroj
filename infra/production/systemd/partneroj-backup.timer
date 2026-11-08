@@ -1,0 +1,12 @@
+[Unit]
+Description=Partneroj backup, every night
+
+[Timer]
+# 03:30 in Brazil: nobody records entries at this hour.
+OnCalendar=*-*-* 03:30:00 America/Sao_Paulo
+# A night missed while the server was off runs at the next boot.
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

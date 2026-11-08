@@ -25,11 +25,20 @@ if [ ! -f infra/production/.env ]; then
   exit 1
 fi
 
+compose="docker compose -f infra/production/compose.yml"
+
+# Build first: the running containers stay up meanwhile.
+$compose --profile tools build
+
+# Plan section 11: a backup right before the migrations. Skipped only on
+# the very first deploy, when there is no database yet.
+if [ -n "$($compose ps --quiet --status running postgres)" ]; then
+  $compose run --rm backup backup.sh pre-deploy
+fi
+
 # --wait: returns only when the API is healthy, or fails if the migrate
-# step or a health check fails. The previous containers keep running
-# until their replacements are built.
-docker compose -f infra/production/compose.yml up --detach --build \
-  --wait --wait-timeout 300 --remove-orphans
+# step or a health check fails.
+$compose up --detach --wait --wait-timeout 300 --remove-orphans
 docker image prune --force >/dev/null
-docker compose -f infra/production/compose.yml ps
+$compose ps
 REMOTE

@@ -1,0 +1,12 @@
+# Monthly restore test (plan section 11, docs/operacao.md). Installed to
+# /etc/systemd/system/ and started by partneroj-restore-check.timer.
+[Unit]
+Description=Partneroj restore check (latest backup into a clean Postgres)
+Requires=docker.service
+After=docker.service partneroj-backup.service
+
+[Service]
+Type=oneshot
+User=solrac
+WorkingDirectory=/home/solrac/partneroj
+ExecStart=/usr/bin/docker compose -f infra/production/compose.yml run --rm backup restore-check.sh

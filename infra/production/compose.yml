@@ -88,6 +88,38 @@ services:
       api:
         condition: service_healthy
 
+  # Not started by `up` (profile): run by the systemd timers and deploy.sh,
+  #   docker compose -f infra/production/compose.yml run --rm backup [script]
+  backup:
+    build:
+      context: ../..
+      dockerfile: infra/production/Dockerfile
+      target: backup
+    image: partneroj-backup:latest
+    profiles: [tools]
+    command: ["backup.sh"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    # The dump and the throwaway Postgres of restore-check.sh live here.
+    tmpfs:
+      - /tmp:size=1g,uid=70,gid=70
+    environment:
+      PGHOST: postgres
+      PGUSER: partneroj
+      PGDATABASE: partneroj
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+      RESTIC_REPOSITORY: /restic
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:?}
+      RESTIC_CACHE_DIR: /tmp/restic-cache
+    volumes:
+      # A host directory, not a volume: `docker compose down -v` removes
+      # volumes, and must never take the backups along with the database.
+      - ${BACKUP_DIR:?}:/restic
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:
   caddy-data:
