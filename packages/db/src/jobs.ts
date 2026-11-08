@@ -4,7 +4,6 @@
 import { sql } from "drizzle-orm";
 import { fromDrizzle, PgBoss } from "pg-boss";
 import type { Database } from "./client.js";
-import { entries } from "./schema.js";
 
 export const queues = {
   /** Sends a push notification about a new entry to the other partners. */
@@ -40,19 +39,4 @@ export async function queueEntryNotification(
 ): Promise<void> {
   const data: EntryNotification = { entryId };
   await boss.send(queues.entryNotification, data, { db: fromDrizzle(tx, sql) });
-}
-
-export type NewEntry = typeof entries.$inferInsert;
-
-/** Records an entry and queues its notification, both or neither. */
-export async function recordEntry(
-  db: Database,
-  boss: PgBoss,
-  entry: NewEntry,
-): Promise<typeof entries.$inferSelect> {
-  return db.transaction(async (tx) => {
-    const [row] = await tx.insert(entries).values(entry).returning();
-    await queueEntryNotification(boss, tx, row!.id);
-    return row!;
-  });
 }

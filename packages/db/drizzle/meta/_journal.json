@@ -29,6 +29,20 @@
       "when": 1794091423017,
       "tag": "0003_silky_marvex",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794100702465,
+      "tag": "0004_open_rocket_raccoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794100703050,
+      "tag": "0005_audit_log_insert_only",
+      "breakpoints": true
     }
   ]
 }

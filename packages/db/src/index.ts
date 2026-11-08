@@ -4,11 +4,15 @@ export { consumeInvite } from "./invites.js";
 export {
   queueEntryNotification,
   queues,
-  recordEntry,
   startJobQueue,
   type EntryNotification,
-  type NewEntry,
   type Transaction,
 } from "./jobs.js";
 export { migrationsFolder, runMigrations } from "./migrate.js";
+export {
+  auditJson,
+  recordEntry,
+  type Entry,
+  type NewEntry,
+} from "./record-entry.js";
 export * from "./schema.js";
