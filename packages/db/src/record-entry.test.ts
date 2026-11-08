@@ -1,14 +1,16 @@
 import { eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { queueEntryNotification, queues, startJobQueue } from "./jobs.js";
+import { recordEntry, type NewEntry } from "./record-entry.js";
 import {
-  queueEntryNotification,
-  queues,
-  recordEntry,
-  startJobQueue,
-  type NewEntry,
-} from "./jobs.js";
-import { entries, members, partnerships, projects } from "./schema.js";
+  activities,
+  auditLog,
+  entries,
+  members,
+  partnerships,
+  projects,
+} from "./schema.js";
 import { startTestDatabase, type TestDatabase } from "./testing.js";
 
 let t: TestDatabase;
@@ -83,5 +85,58 @@ describe("an entry and its notification", () => {
       .where(eq(entries.id, entryId));
     expect(stored).toHaveLength(0);
     expect(await jobsFor(entryId)).toHaveLength(0);
+  });
+});
+
+const feedFor = (entryId: string) =>
+  t.db.select().from(activities).where(eq(activities.entryId, entryId));
+const auditFor = (entryId: string) =>
+  t.db.select().from(auditLog).where(eq(auditLog.entityId, entryId));
+
+describe("recordEntry", () => {
+  it("adds the entry to its partnership's feed", async () => {
+    const entry = await newExpense();
+    const row = await recordEntry(t.db, boss, entry);
+    const [project] = await t.db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, entry.projectId));
+    expect(await feedFor(row.id)).toMatchObject([
+      {
+        partnershipId: project!.partnershipId,
+        actorId: entry.authorId,
+        action: "entry_recorded",
+      },
+    ]);
+  });
+
+  it("audits the entry as it was recorded", async () => {
+    const row = await recordEntry(t.db, boss, await newExpense());
+    expect(await auditFor(row.id)).toMatchObject([
+      {
+        actorId: row.authorId,
+        action: "entry.record",
+        before: null,
+        after: { id: row.id, amount: "15000", type: "expense" },
+      },
+    ]);
+  });
+
+  it("marks a reversal as such in the feed and the audit", async () => {
+    const original = await recordEntry(t.db, boss, await newExpense());
+    const { id, createdAt, ...rest } = original;
+    void createdAt;
+    const reversal = await recordEntry(t.db, boss, {
+      ...rest,
+      amount: -original.amount,
+      reversalOf: id,
+      reversalReason: "Wrong amount",
+    });
+    expect(await feedFor(reversal.id)).toMatchObject([
+      { action: "entry_reversed" },
+    ]);
+    expect(await auditFor(reversal.id)).toMatchObject([
+      { action: "entry.reverse", after: { amount: "-15000" } },
+    ]);
   });
 });
