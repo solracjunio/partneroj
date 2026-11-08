@@ -10,6 +10,7 @@ export {
   type Transaction,
 } from "./jobs.js";
 export { migrationsFolder, runMigrations } from "./migrate.js";
+export { appLogin, prepareDatabase } from "./prepare.js";
 export {
   auditJson,
   recordEntry,
