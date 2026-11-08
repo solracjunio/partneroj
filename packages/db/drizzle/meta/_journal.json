@@ -22,6 +22,13 @@
       "when": 1794089098217,
       "tag": "0002_entries_immutable",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794091423017,
+      "tag": "0003_silky_marvex",
+      "breakpoints": true
     }
   ]
 }

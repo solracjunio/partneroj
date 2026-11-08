@@ -196,3 +196,98 @@ export const entries = pgTable(
     ),
   ],
 );
+
+/** Kinds of file a receipt can be: photos are re-encoded without EXIF. */
+export const receiptContentTypes = [
+  "image/jpeg",
+  "image/webp",
+  "application/pdf",
+] as const;
+
+/**
+ * A photo or PDF of a receipt (plan section 9, "Arquivos"). The file
+ * itself lives in storage under storageKey; the hash finds the same file
+ * sent twice and proves the file was not changed afterwards.
+ */
+export const receipts = pgTable(
+  "receipts",
+  {
+    id: id(),
+    entryId: uuid()
+      .notNull()
+      .references(() => entries.id),
+    storageKey: text().notNull(),
+    contentType: text().notNull(),
+    sizeBytes: integer().notNull(),
+    /** SHA-256 of the stored file, in lowercase hex. */
+    sha256: text().notNull(),
+    uploadedBy: uuid()
+      .notNull()
+      .references(() => members.id),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("receipts_storage_key_unique").on(t.storageKey),
+    unique("receipts_file_per_entry_unique").on(t.entryId, t.sha256),
+    check(
+      "receipts_content_type_allowed",
+      sql`${t.contentType} in (${sql.raw(
+        receiptContentTypes.map((type) => `'${type}'`).join(", "),
+      )})`,
+    ),
+    // Photos are resized before upload; 10 MB is far above a real one.
+    check("receipts_size_range", sql`${t.sizeBytes} between 1 and 10485760`),
+    check("receipts_sha256_hex", sql`${t.sha256} ~ '^[0-9a-f]{64}$'`),
+  ],
+);
+
+/**
+ * A one-time link for a member to enter (plan section 6, "Convite").
+ * Only the SHA-256 of the token is stored: a copy of the database can't
+ * be used to enter. Opening the link does not use it; a POST does.
+ */
+export const invites = pgTable(
+  "invites",
+  {
+    id: id(),
+    memberId: uuid()
+      .notNull()
+      .references(() => members.id),
+    tokenHash: text().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    usedAt: timestamp({ withTimezone: true }),
+    revokedAt: timestamp({ withTimezone: true }),
+    createdBy: uuid()
+      .notNull()
+      .references(() => members.id),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("invites_token_hash_unique").on(t.tokenHash),
+    check(
+      "invites_expire_after_creation",
+      sql`${t.expiresAt} > ${t.createdAt}`,
+    ),
+  ],
+);
+
+/**
+ * A long-lived device session, renewed on each use (plan section 6).
+ * As with invites, only the hash of the refresh token is stored.
+ */
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: id(),
+    memberId: uuid()
+      .notNull()
+      .references(() => members.id),
+    device: text(),
+    browser: text(),
+    refreshTokenHash: text().notNull(),
+    createdAt: createdAt(),
+    lastUsedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [unique("sessions_refresh_token_hash_unique").on(t.refreshTokenHash)],
+);
