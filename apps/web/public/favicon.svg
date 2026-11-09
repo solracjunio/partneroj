@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Source of the app icons (apps/web/icons/README.md). Full-bleed
-       background: Android crops "maskable" icons to its own shape, so
-       the drawing stays inside the safe circle (radius 40% of the size).
-       A roof over the P, so it doesn't read as a parking sign. -->
+  <!-- The drawing at full size, for the browser tab (public/favicon.svg
+       is a copy), where the icon is tiny and never cropped. The app icons
+       come from app-icon.svg. A roof over the P, so it doesn't read as a
+       parking sign. -->
   <rect width="512" height="512" fill="#10233f"/>
   <g transform="translate(0 28)">
     <path fill="none" stroke="#f4b400" stroke-width="36" stroke-linecap="round"
