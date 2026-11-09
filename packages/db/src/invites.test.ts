@@ -1,6 +1,11 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { acceptInvite, createInvite, previewInvite } from "./invites.js";
+import {
+  acceptInvite,
+  createInvite,
+  inviteMember,
+  previewInvite,
+} from "./invites.js";
 import {
   activities,
   auditLog,
@@ -97,6 +102,82 @@ describe("createInvite", () => {
       .where(eq(auditLog.entityId, invite!.id));
     expect(audit).toMatchObject({ actorId: null, action: "invite.create" });
     expect(JSON.stringify(audit!.after)).not.toContain(invite!.tokenHash);
+  });
+});
+
+describe("a new invite", () => {
+  it("revokes the member's pending invite: only the newest link works", async () => {
+    const member = await newMember();
+    const first = await createInvite(app.db, {
+      memberId: member.id,
+      createdBy: null,
+    });
+    const second = await createInvite(app.db, {
+      memberId: member.id,
+      createdBy: null,
+    });
+    expect(await previewInvite(app.db, first.token)).toBeNull();
+    expect(await acceptInvite(app.db, first.token)).toBeNull();
+    expect(await acceptInvite(app.db, second.token)).not.toBeNull();
+  });
+
+  it("records which invites it replaced", async () => {
+    const member = await newMember();
+    await createInvite(app.db, { memberId: member.id, createdBy: null });
+    await createInvite(app.db, { memberId: member.id, createdBy: null });
+    const rows = await t.db
+      .select()
+      .from(invites)
+      .where(eq(invites.memberId, member.id))
+      .orderBy(invites.id);
+    const [audit] = await t.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.entityId, rows[1]!.id));
+    expect(audit!.after).toMatchObject({ replacedInviteIds: [rows[0]!.id] });
+  });
+});
+
+describe("inviteMember", () => {
+  it("lets an admin invite a member of the same partnership", async () => {
+    const member = await newMember();
+    const [admin] = await t.db
+      .insert(members)
+      .values({
+        partnershipId: member.partnershipId,
+        name: "João",
+        role: "admin",
+      })
+      .returning();
+    const invite = await inviteMember(app.db, {
+      actorId: admin!.id,
+      partnershipId: member.partnershipId,
+      memberId: member.id,
+    });
+    expect(await previewInvite(app.db, invite!.token)).toMatchObject({
+      memberName: "Maria",
+    });
+    const [row] = await t.db
+      .select()
+      .from(invites)
+      .where(eq(invites.memberId, member.id));
+    expect(row!.createdBy).toBe(admin!.id);
+  });
+
+  it("returns null for a member of another partnership, inviting nobody", async () => {
+    const ours = await newMember();
+    const theirs = await newMember();
+    const invite = await inviteMember(app.db, {
+      actorId: ours.id,
+      partnershipId: ours.partnershipId,
+      memberId: theirs.id,
+    });
+    expect(invite).toBeNull();
+    const rows = await t.db
+      .select()
+      .from(invites)
+      .where(eq(invites.memberId, theirs.id));
+    expect(rows).toEqual([]);
   });
 });
 

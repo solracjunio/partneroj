@@ -21,38 +21,83 @@ export const INVITE_LIFETIME_HOURS = 24;
 /**
  * Creates an invite for a member and returns its token, which goes in the
  * link. The token is not stored, so it can't be shown again: a lost link
- * means a new invite. createdBy is null for a command on the server.
+ * means a new invite. For a command on the server: createdBy is null and
+ * any member can be invited.
  */
 export async function createInvite(
   db: Database,
   input: { memberId: string; createdBy: string | null },
 ): Promise<{ token: string; expiresAt: Date }> {
-  const { token, tokenHash } = newToken();
+  return db.transaction((tx) =>
+    insertInvite(tx, input.memberId, input.createdBy),
+  );
+}
+
+/**
+ * Creates an invite as an admin in the app, or returns null when the
+ * member is not in the admin's partnership. The filter is in the query,
+ * as in revokeSessions: no caller can invite into another partnership by
+ * forgetting a check.
+ */
+export async function inviteMember(
+  db: Database,
+  input: { actorId: string; partnershipId: string; memberId: string },
+): Promise<{ token: string; expiresAt: Date } | null> {
   return db.transaction(async (tx) => {
-    const [invite] = await tx
-      .insert(invites)
-      .values({
-        memberId: input.memberId,
-        tokenHash,
-        expiresAt: sql`now() + make_interval(hours => ${INVITE_LIFETIME_HOURS})`,
-        createdBy: input.createdBy,
-      })
-      .returning();
-    // The hash stays out of the audit, which people read: the fields are
-    // listed one by one, so a new column doesn't slip in unnoticed.
-    await tx.insert(auditLog).values({
-      actorId: input.createdBy,
-      action: "invite.create",
-      entityId: invite!.id,
-      after: auditJson({
-        id: invite!.id,
-        memberId: invite!.memberId,
-        expiresAt: invite!.expiresAt,
-        createdBy: invite!.createdBy,
-      }),
-    });
-    return { token, expiresAt: invite!.expiresAt };
+    const [member] = await tx
+      .select({ id: members.id })
+      .from(members)
+      .where(
+        and(
+          eq(members.id, input.memberId),
+          eq(members.partnershipId, input.partnershipId),
+        ),
+      );
+    if (member === undefined) return null;
+    return insertInvite(tx, member.id, input.actorId);
   });
+}
+
+/**
+ * Revokes the member's invites still pending, so only the newest link
+ * works (an old one may still sit in a chat), then inserts the new one.
+ */
+async function insertInvite(
+  tx: Transaction,
+  memberId: string,
+  createdBy: string | null,
+): Promise<{ token: string; expiresAt: Date }> {
+  const replaced = await tx
+    .update(invites)
+    .set({ revokedAt: sql`now()` })
+    .where(and(eq(invites.memberId, memberId), usable()))
+    .returning({ id: invites.id });
+
+  const { token, tokenHash } = newToken();
+  const [invite] = await tx
+    .insert(invites)
+    .values({
+      memberId,
+      tokenHash,
+      expiresAt: sql`now() + make_interval(hours => ${INVITE_LIFETIME_HOURS})`,
+      createdBy,
+    })
+    .returning();
+  // The hash stays out of the audit, which people read: the fields are
+  // listed one by one, so a new column doesn't slip in unnoticed.
+  await tx.insert(auditLog).values({
+    actorId: createdBy,
+    action: "invite.create",
+    entityId: invite!.id,
+    after: auditJson({
+      id: invite!.id,
+      memberId: invite!.memberId,
+      expiresAt: invite!.expiresAt,
+      createdBy: invite!.createdBy,
+      replacedInviteIds: replaced.map((r) => r.id),
+    }),
+  });
+  return { token, expiresAt: invite!.expiresAt };
 }
 
 /** What the invite page shows: "Olá, Maria. Toque para entrar na Obra". */
