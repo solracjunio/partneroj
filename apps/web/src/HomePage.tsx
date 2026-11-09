@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { api, type Me, type Result } from "./api";
+import { InstallCard } from "./InstallCard";
 
 /**
  * The first screen. For now it only says who is signed in: the balances
@@ -28,6 +29,7 @@ export function HomePage() {
         <p className="muted">
           Os lançamentos e os saldos chegam nas próximas versões.
         </p>
+        <InstallCard />
       </section>
     );
   }

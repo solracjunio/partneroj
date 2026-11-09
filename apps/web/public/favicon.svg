@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Source of the app icons (apps/web/icons/README.md). Full-bleed
+       background: Android crops "maskable" icons to its own shape, so
+       the drawing stays inside the safe circle (radius 40% of the size).
+       A roof over the P, so it doesn't read as a parking sign. -->
+  <rect width="512" height="512" fill="#10233f"/>
+  <g transform="translate(0 28)">
+    <path fill="none" stroke="#f4b400" stroke-width="36" stroke-linecap="round"
+          stroke-linejoin="round" d="M136 142 L256 66 L376 142"/>
+    <path fill="#ffffff" fill-rule="evenodd" transform="translate(-10 30)"
+          d="M176 136 H280 A76 76 0 0 1 280 288 H232 V376 H176 Z
+             M232 184 V240 H276 A28 28 0 0 0 276 184 Z"/>
+  </g>
+</svg>
