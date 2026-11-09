@@ -1,0 +1,13 @@
+# External heartbeat to Healthchecks.io (docs/operacao.md). Installed to
+# /etc/systemd/system/ and started by partneroj-heartbeat.timer.
+[Unit]
+Description=Partneroj external heartbeat (Healthchecks.io)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=solrac
+# The .env lines are plain KEY=value, which systemd reads as they are.
+EnvironmentFile=/home/solrac/partneroj/infra/production/.env
+ExecStart=/home/solrac/partneroj/infra/production/heartbeat-external.sh

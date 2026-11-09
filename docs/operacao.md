@@ -258,7 +258,24 @@ O **Uptime Kuma** roda na VPS e avisa no celular pelo **ntfy**. O que ele vigia:
 
 O backup, o teste e a cópia avisam o Kuma ao terminar (`up`) ou ao falhar (`down`). Um PC desligado não é falha: a cópia simplesmente não acontece, e só depois de 3 dias sem nenhuma cópia o Kuma avisa. Se um deles nem chegar a rodar (container quebrado, timer parado, servidor desligado), o aviso que não chega dispara o alerta do mesmo jeito.
 
-> **Limite conhecido:** o Kuma está na mesma VPS. Se a VPS inteira cair, ele cai junto e **não avisa**. Isso se fecha com um monitor fora do servidor, que ainda não existe.
+### Vigilância de fora da VPS (Healthchecks.io)
+
+O Kuma está na mesma VPS: se ela cair inteira, ele cai junto e não avisa. Por isso a VPS manda, a cada 5 minutos, um "estou viva" para o **Healthchecks.io**, um serviço de fora (software BSD, que também pode ser auto-hospedado). Se o sinal parar por mais de 15 minutos (período de 5 mais tolerância de 10), ele avisa pelo **mesmo tópico do ntfy**.
+
+O script (`infra/production/heartbeat-external.sh`) só manda o sinal se o **Kuma estiver saudável**. Se o Kuma estiver parado ou doente, ele manda `/fail`, que avisa na hora. Assim:
+
+| O que cai | Quem avisa |
+| --- | --- |
+| A API, um backup, o teste de restauração, a cópia | Uptime Kuma |
+| O Uptime Kuma | Healthchecks.io, na hora |
+| A VPS inteira (ou a rede dela) | Healthchecks.io, em até 15 min |
+
+#### Configurar (uma vez)
+
+1. Em https://healthchecks.io, criar um check `Partneroj VPS` com período de **5 minutos** e tolerância (*grace time*) de **10 minutos**.
+2. Em **Integrations**, adicionar o **ntfy** com o mesmo tópico e o servidor `https://ntfy.sh`, e ligá-lo para esse check.
+3. Colocar a *Ping URL* no `.env` do servidor: `HEALTHCHECKS_PING_URL=https://hc-ping.com/<uuid>`.
+4. Instalar o timer: `sudo cp ~/partneroj/infra/production/systemd/partneroj-heartbeat.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now partneroj-heartbeat.timer`.
 
 ### Abrir o painel
 
@@ -296,6 +313,25 @@ Os nomes dos menus abaixo são os da tradução para português e podem variar u
    ```sh
    sudo systemctl start partneroj-backup.service partneroj-restore-check.service
    ```
+
+## Chaves do Web Push (VAPID)
+
+As notificações push são assinadas com um par de chaves **VAPID**. Ele é gerado **uma única vez**, no servidor, e **nunca muda**: cada inscrição de push feita por um celular fica presa à chave pública. Com chaves novas, todas as inscrições param de funcionar sem nenhum erro visível, e cada sócio teria de reativar as notificações.
+
+- A **API** recebe só a `VAPID_PUBLIC_KEY`, que entrega ao navegador na inscrição.
+- O **worker** recebe também a `VAPID_PRIVATE_KEY`, porque é ele quem envia os pushes. Uma API invadida não consegue assinar um push.
+- O `subject` é `https://partneroj.com.br`, sem e-mail.
+
+Gerar, só se ainda não houver `VAPID_` no `.env`:
+
+```sh
+cd ~/partneroj
+grep -q '^VAPID_PUBLIC_KEY=' infra/production/.env || \
+  docker run --rm -v "$PWD/infra/production:/s:ro" node:26-alpine \
+    node /s/generate-vapid-keys.mjs >> infra/production/.env
+```
+
+**As duas chaves vão para o gerenciador de senhas**, como o resto do `.env`. Se o servidor for perdido, elas precisam voltar iguais.
 
 ## Trocar a senha da aplicação
 
