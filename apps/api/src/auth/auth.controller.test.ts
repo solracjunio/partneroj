@@ -193,3 +193,46 @@ describe("POST /members/:memberId/sessions/revoke", () => {
     await http().get("/me").set("Cookie", theirCookie).expect(200);
   });
 });
+
+describe("POST /members/:memberId/invites", () => {
+  it("lets an admin make a new link that replaces the old one", async () => {
+    const { admin, partner } = await newPartnership();
+    const adminCookie = await signIn(admin.token);
+
+    const response = await http()
+      .post(`/members/${partner.id}/invites`)
+      .set("Cookie", adminCookie)
+      .expect(201);
+    const body = response.body as { token: string; expiresAt: string };
+    expect(body.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(response.headers["cache-control"]).toBe("no-store");
+
+    await http().get(`/invites/${partner.token}`).expect(404);
+    await http().get(`/invites/${body.token}`).expect(200);
+  });
+
+  it("refuses a partner who is not an admin", async () => {
+    const { admin, partner } = await newPartnership();
+    const partnerCookie = await signIn(partner.token);
+    await http()
+      .post(`/members/${admin.id}/invites`)
+      .set("Cookie", partnerCookie)
+      .expect(403);
+  });
+
+  it("can't invite a member of another partnership", async () => {
+    const ours = await newPartnership();
+    const theirs = await newPartnership("Outra Obra");
+    const adminCookie = await signIn(ours.admin.token);
+    await http()
+      .post(`/members/${theirs.partner.id}/invites`)
+      .set("Cookie", adminCookie)
+      .expect(404);
+    await http().get(`/invites/${theirs.partner.token}`).expect(200);
+  });
+
+  it("answers 401 without a session", async () => {
+    const { partner } = await newPartnership();
+    await http().post(`/members/${partner.id}/invites`).expect(401);
+  });
+});

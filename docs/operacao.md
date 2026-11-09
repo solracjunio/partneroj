@@ -94,7 +94,7 @@ $cli create-partnership --name "<nome da obra>" --admin "<nome>" --admin "<nome>
 $cli invite <id do membro>
 ```
 
-O comando imprime o link `https://<domínio>/convite/<token>`. Ele vale por 24 h e serve para um toque só. Mande por mensagem ou mostre como QR Code. O token não fica guardado (só o hash dele), então não dá para mostrar o mesmo link de novo: se ele se perder, gere outro convite.
+O comando imprime o link `https://<domínio>/convite/<token>`. Ele vale por 24 h e serve para um toque só. Mande por mensagem ou mostre como QR Code. O token não fica guardado (só o hash dele), então não dá para mostrar o mesmo link de novo: se ele se perder, gere outro convite. O convite novo cancela o anterior que ainda não foi usado, e só o link mais novo funciona.
 
 ### Procedimento de emergência
 

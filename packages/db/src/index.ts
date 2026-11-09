@@ -4,6 +4,7 @@ export {
   acceptInvite,
   createInvite,
   INVITE_LIFETIME_HOURS,
+  inviteMember,
   previewInvite,
   type Device,
   type InvitePreview,

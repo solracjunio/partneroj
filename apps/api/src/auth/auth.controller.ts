@@ -18,6 +18,7 @@ import {
   acceptInvite,
   type Database,
   type InvitePreview,
+  inviteMember,
   previewInvite,
   revokeSessions,
   type SessionMember,
@@ -87,6 +88,29 @@ export class SessionsController {
       name: member.name,
       role: member.role,
     };
+  }
+
+  /**
+   * A new invite link for a member (plan section 6): admins only. The
+   * token is shown once; the app builds the link from it. Any pending
+   * invite of the member stops working.
+   */
+  @Post("members/:memberId/invites")
+  @Header("Cache-Control", "no-store")
+  async invite(
+    @CurrentMember() actor: SessionMember,
+    @Param("memberId") memberId: string,
+  ): Promise<{ token: string; expiresAt: Date }> {
+    if (actor.role !== "admin") throw new ForbiddenException();
+    const invite = UUID.test(memberId)
+      ? await inviteMember(this.db, {
+          actorId: actor.memberId,
+          partnershipId: actor.partnershipId,
+          memberId,
+        })
+      : null;
+    if (invite === null) throw new NotFoundException();
+    return invite;
   }
 
   /** After a lost phone (plan section 2): admins only. */
