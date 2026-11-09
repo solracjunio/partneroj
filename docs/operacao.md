@@ -85,7 +85,7 @@ Cada snapshot guarda:
 | Antes de cada migration | Backup `pre-deploy` | `deploy.sh` |
 | Todo domingo, 05:00 | Teste de restauração | `partneroj-restore-check.timer` |
 
-**Retenção** (plano, seção 11): 7 diários, 4 semanais e 12 mensais.
+**Retenção** (plano, seção 11): 7 diários, 4 semanais e 12 mensais. Além disso, **todos** os snapshots dos últimos 7 dias são guardados, para que o backup `pre-deploy` de um dia com dois deploys não seja apagado pelo segundo.
 
 O teste de restauração roda toda semana, mais que o mensal do plano. O Uptime Kuma não aceita um intervalo de heartbeat maior que cerca de 24 dias, e um teste mensal daria alarme falso todo mês.
 

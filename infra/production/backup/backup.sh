@@ -34,9 +34,11 @@ pg_dump --format=custom --file="$work/partneroj.dump"
 
 restic backup --host partneroj --tag "$tag" "$work/roles.sql" "$work/partneroj.dump"
 
-# Plan section 11: 7 daily, 4 weekly and 12 monthly. Pre-deploy snapshots
-# count among them, so a busy day still keeps one per day.
-restic forget --host partneroj --group-by host \
+# Plan section 11: 7 daily, 4 weekly and 12 monthly. --keep-daily keeps
+# only the last snapshot of each day, so on a day with two deploys the
+# first pre-deploy snapshot, the one taken before the first migration,
+# would go; --keep-within keeps every snapshot of the last 7 days.
+restic forget --host partneroj --group-by host --keep-within 7d \
   --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune
 restic check
 echo "backup done ($tag)"
