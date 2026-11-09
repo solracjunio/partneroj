@@ -1,0 +1,97 @@
+/*
+ * Plan section 5, accessibility for older people: an 18 px base font,
+ * high contrast, buttons of at least 48 px, plain words and nothing
+ * hidden behind a gesture.
+ */
+:root {
+  --text: #111;
+  --muted: #444;
+  --background: #fff;
+  --primary: #0b5cad;
+  --primary-text: #fff;
+  --notice: #fff4cc;
+  --notice-border: #8a6d00;
+  --problem: #a40000;
+
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #f2f2f2;
+    --muted: #c8c8c8;
+    --background: #121212;
+    --primary: #5aa9ff;
+    --primary-text: #001a33;
+    --notice: #3a3000;
+    --notice-border: #e0c040;
+    --problem: #ff8a8a;
+  }
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background: var(--background);
+}
+
+main {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+h1 {
+  font-size: 1.6rem;
+  line-height: 1.25;
+  margin: 0 0 16px;
+}
+
+p {
+  margin: 0 0 16px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.problem {
+  color: var(--problem);
+  font-weight: 600;
+}
+
+.notice {
+  background: var(--notice);
+  border-left: 4px solid var(--notice-border);
+  padding: 16px 16px 0;
+  margin: 0 0 24px;
+}
+
+button.primary {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--primary);
+  color: var(--primary-text);
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.primary:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+button.primary:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 3px;
+}
