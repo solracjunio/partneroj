@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- The maskable icon (apps/web/icons/README.md): icon.svg's drawing
+       at 70% around the center. Android shows only the central circle of
+       an adaptive icon, 66 of 108 dp (about 61% of the size), and some
+       launchers zoom in further; at full size the roof and the P were
+       cut on a real phone. -->
+  <rect width="512" height="512" fill="#10233f"/>
+  <g transform="translate(256 256) scale(0.7) translate(-256 -256)">
+  <g transform="translate(0 28)">
+    <path fill="none" stroke="#f4b400" stroke-width="36" stroke-linecap="round"
+          stroke-linejoin="round" d="M136 142 L256 66 L376 142"/>
+    <path fill="#ffffff" fill-rule="evenodd" transform="translate(-10 30)"
+          d="M176 136 H280 A76 76 0 0 1 280 288 H232 V376 H176 Z
+             M232 184 V240 H276 A28 28 0 0 0 276 184 Z"/>
+  </g>
+  </g>
+</svg>
