@@ -52,6 +52,12 @@ export {
   type NewWeight,
   type ProjectListing,
 } from "./projects.js";
+export {
+  addReceipt,
+  findEntryForReceipt,
+  findReceipt,
+  type NewReceipt,
+} from "./receipts.js";
 export * from "./schema.js";
 export {
   findSession,

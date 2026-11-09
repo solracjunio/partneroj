@@ -77,6 +77,27 @@ for table in entries audit_log; do
   fi
 done
 
+# Every receipt of the restored database has its file in the snapshot,
+# byte for byte: the file's SHA-256 is the one recorded with the row.
+restic restore "$snapshot" --target "$work/files" --include /uploads >/dev/null
+receipts=$(restored -F ' ' -c "select storage_key, sha256 from receipts order by id")
+missing=0
+count=0
+while read -r key hash; do
+  [ -z "$key" ] && continue
+  count=$((count + 1))
+  file="$work/files/uploads/$key"
+  if [ ! -f "$file" ] || [ "$(sha256sum "$file" | cut -d' ' -f1)" != "$hash" ]; then
+    echo "  receipt file missing or changed: $key" >&2
+    missing=1
+  fi
+done <<<"$receipts"
+if [ "$missing" -eq 0 ]; then
+  echo "  receipts: $count files, all present and unchanged"
+else
+  failed=1
+fi
+
 # The golden rule (partners' balances = accounts' balances) joins this
 # check when the balances report exists (block 4).
 

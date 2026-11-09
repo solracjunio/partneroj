@@ -32,7 +32,10 @@ fi
 pg_dumpall --roles-only --no-role-passwords >"$work/roles.sql"
 pg_dump --format=custom --file="$work/partneroj.dump"
 
-restic backup --host partneroj --tag "$tag" "$work/roles.sql" "$work/partneroj.dump"
+# The receipt files, at a fixed path like the dump. A row and its file go
+# into the same snapshot; a file stored after the dump is in the snapshot
+# without its row, which is harmless (the next backup has both).
+restic backup --host partneroj --tag "$tag" "$work/roles.sql" "$work/partneroj.dump" /uploads
 
 # Plan section 11: 7 daily, 4 weekly and 12 monthly. --keep-daily keeps
 # only the last snapshot of each day, so on a day with two deploys the

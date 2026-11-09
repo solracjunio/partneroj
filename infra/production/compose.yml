@@ -63,6 +63,13 @@ services:
       # Web Push: the browser subscribes with the public key. The API never
       # gets the private one, so it cannot sign a push.
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?}
+      # Receipt files (photos and PDFs), see the volume below.
+      UPLOADS_DIR: /uploads
+    volumes:
+      # A host directory, not a volume, like the backups: `docker compose
+      # down -v` removes volumes, and must never take the receipts along.
+      # The only writable place of the API's read-only container.
+      - ${UPLOADS_DIR:?}:/uploads
     healthcheck:
       test:
         - CMD
@@ -137,6 +144,8 @@ services:
       # A host directory, not a volume: `docker compose down -v` removes
       # volumes, and must never take the backups along with the database.
       - ${BACKUP_DIR:?}:/restic
+      # The receipt files go into the same snapshot as the database.
+      - ${UPLOADS_DIR:?}:/uploads:ro
     depends_on:
       postgres:
         condition: service_healthy
