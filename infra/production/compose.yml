@@ -18,7 +18,7 @@ x-app: &app
   cap_drop: [ALL]
   security_opt: ["no-new-privileges:true"]
   environment:
-    # The restricted login (packages/db/src/prepare.ts), never the owner.
+    &app-env # The restricted login (packages/db/src/prepare.ts), never the owner.
     DATABASE_URL: postgres://partneroj_api:${APP_DB_PASSWORD:?}@postgres:5432/partneroj
   depends_on:
     migrate:
@@ -56,6 +56,11 @@ services:
   api:
     <<: *app
     command: ["node", "apps/api/dist/main.js"]
+    environment:
+      <<: *app-env
+      # Web Push: the browser subscribes with the public key. The API never
+      # gets the private one, so it cannot sign a push.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?}
     healthcheck:
       test:
         - CMD
@@ -69,6 +74,12 @@ services:
   worker:
     <<: *app
     command: ["node", "apps/worker/dist/main.js"]
+    environment:
+      <<: *app-env
+      # The worker sends the pushes (jobs.ts), so only it signs them.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?}
+      VAPID_SUBJECT: https://partneroj.com.br
 
   caddy:
     build:
