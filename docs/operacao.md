@@ -70,6 +70,40 @@ ssh partneroj 'cd ~/partneroj && docker compose -f infra/production/compose.yml 
 
 **Voltar a uma versão anterior:** `infra/production/deploy.sh <commit>`. Isso só desfaz o código. Uma migration já aplicada continua no banco, e por isso as mudanças de schema seguem a regra do plano: compatíveis, em duas etapas (expandir e depois contrair). Se uma migration estragou dados, restaure o backup `pre-deploy` daquele deploy (a seção [Restaurar de verdade](#restaurar-de-verdade)).
 
+## Sociedade e convites pelo servidor
+
+Algumas coisas não dá para fazer pelo app: criar a primeira sociedade e os primeiros convites, quando ninguém tem sessão ainda, e o procedimento de emergência. O `admin-cli` faz isso no servidor. Ele conecta com o login da aplicação (`partneroj_api`), não com o dono das tabelas, e registra cada mudança na auditoria com autor nulo. É assim que a auditoria distingue um comando do servidor de uma ação de um sócio.
+
+Os nomes dos sócios só são digitados aqui, no terminal da VPS. Eles nunca vão para o repositório.
+
+```sh
+ssh partneroj
+cd ~/partneroj
+cli="docker compose -f infra/production/compose.yml run --rm --no-deps api node packages/db/dist/admin-cli.js"
+```
+
+**Criar a sociedade** (uma vez). Toda sociedade precisa de pelo menos 2 administradores (plano, seção 2):
+
+```sh
+$cli create-partnership --name "<nome da obra>" --admin "<nome>" --admin "<nome>" [--partner "<nome>"] [--reader "<nome>"]
+```
+
+**Gerar um convite** para um membro (o id vem de `$cli list-members`):
+
+```sh
+$cli invite <id do membro>
+```
+
+O comando imprime o link `https://<domínio>/convite/<token>`. Ele vale por 24 h e serve para um toque só. Mande por mensagem ou mostre como QR Code. O token não fica guardado (só o hash dele), então não dá para mostrar o mesmo link de novo: se ele se perder, gere outro convite.
+
+### Procedimento de emergência
+
+Use quando **os dois administradores** perderam o acesso. Quando só um perdeu, o outro resolve pelo app: revoga as sessões do celular perdido e gera um novo convite. Enquanto a tela de convites não existir, use o `admin-cli` também nesse caso.
+
+1. `$cli list-members` e anotar o id de um administrador.
+2. `$cli invite <id>` e mandar o link para essa pessoa.
+3. Avisar os outros sócios. A auditoria registra o convite como `invite.create` com autor nulo, e qualquer um pode conferir.
+
 ## Backup
 
 Um repositório **restic** criptografado em `/srv/partneroj-backup`, no disco da VPS, fora de qualquer volume do Docker. Um `docker compose down -v` apaga os volumes, e não pode levar o backup junto com o banco.

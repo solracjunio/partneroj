@@ -20,6 +20,8 @@ x-app: &app
   environment:
     &app-env # The restricted login (packages/db/src/prepare.ts), never the owner.
     DATABASE_URL: postgres://partneroj_api:${APP_DB_PASSWORD:?}@postgres:5432/partneroj
+    # The site's address, for the invite links printed by admin-cli.
+    PUBLIC_URL: https://${DOMAIN:?}
   depends_on:
     migrate:
       condition: service_completed_successfully

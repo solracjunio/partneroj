@@ -24,6 +24,14 @@ export {
   type Entry,
   type NewEntry,
 } from "./record-entry.js";
+export {
+  createPartnership,
+  listMembers,
+  MIN_ADMINS,
+  type CreatedMember,
+  type MemberListing,
+  type NewMember,
+} from "./partnerships.js";
 export * from "./schema.js";
 export {
   findSession,
