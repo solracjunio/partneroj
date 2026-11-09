@@ -33,6 +33,14 @@ export {
   type MemberListing,
   type NewMember,
 } from "./partnerships.js";
+export {
+  addCategories,
+  createProject,
+  drawOrder,
+  listProjects,
+  type NewWeight,
+  type ProjectListing,
+} from "./projects.js";
 export * from "./schema.js";
 export {
   findSession,
