@@ -10,6 +10,16 @@ export {
   type InvitePreview,
 } from "./invites.js";
 export {
+  currentProject,
+  ExpenseRefused,
+  recordExpense,
+  type ExpenseRefusal,
+  type PocketExpense,
+  type ProjectForEntries,
+} from "./expenses.js";
+// The queue's type, so the apps use pg-boss without a second copy of it.
+export type { PgBoss } from "pg-boss";
+export {
   installJobQueue,
   queueEntryNotification,
   queues,
@@ -22,6 +32,7 @@ export { appLogin, prepareDatabase } from "./prepare.js";
 export {
   auditJson,
   recordEntry,
+  recordEntryIn,
   type Entry,
   type NewEntry,
 } from "./record-entry.js";
