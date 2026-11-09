@@ -1,6 +1,13 @@
 // Postgres schema, client and migrations, shared by the API and the worker.
 export { createDatabase, type Database } from "./client.js";
-export { consumeInvite } from "./invites.js";
+export {
+  acceptInvite,
+  createInvite,
+  INVITE_LIFETIME_HOURS,
+  previewInvite,
+  type Device,
+  type InvitePreview,
+} from "./invites.js";
 export {
   installJobQueue,
   queueEntryNotification,
@@ -18,3 +25,9 @@ export {
   type NewEntry,
 } from "./record-entry.js";
 export * from "./schema.js";
+export {
+  findSession,
+  SESSION_IDLE_DAYS,
+  type SessionMember,
+} from "./sessions.js";
+export { hashToken, newToken } from "./tokens.js";

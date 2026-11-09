@@ -1,99 +1,225 @@
-import { createHash, randomBytes } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { consumeInvite } from "./invites.js";
-import { invites, members, partnerships, sessions } from "./schema.js";
+import { acceptInvite, createInvite, previewInvite } from "./invites.js";
 import {
+  activities,
+  auditLog,
+  invites,
+  members,
+  partnerships,
+  sessions,
+} from "./schema.js";
+import {
+  connectAsApp,
   pgErrorCode,
   startTestDatabase,
+  type AppConnection,
   type TestDatabase,
 } from "./testing.js";
+import { hashToken, newToken } from "./tokens.js";
 
 let t: TestDatabase;
+let app: AppConnection;
 beforeAll(async () => {
   t = await startTestDatabase();
+  app = await connectAsApp(t);
 });
 afterAll(async () => {
+  await app?.db.$client.end();
   await t?.stop();
 });
 
-const hash = (token: string) =>
-  createHash("sha256").update(token).digest("hex");
 const hours = (n: number) => new Date(Date.now() + n * 3_600_000);
 
-/** A member and an invite for them; returns the token's hash. */
-async function newInvite(
-  overrides: Partial<typeof invites.$inferInsert> = {},
-): Promise<{ memberId: string; tokenHash: string }> {
+/** A partnership with one member, "Maria". */
+async function newMember(): Promise<{ id: string; partnershipId: string }> {
   const [p] = await t.db
     .insert(partnerships)
-    .values({ name: "Test" })
+    .values({ name: "Obra Teste" })
     .returning();
   const [member] = await t.db
     .insert(members)
-    .values({ partnershipId: p!.id, name: "A", role: "partner" })
+    .values({ partnershipId: p!.id, name: "Maria", role: "partner" })
     .returning();
-  const tokenHash = hash(randomBytes(32).toString("base64url"));
-  await t.db.insert(invites).values({
-    memberId: member!.id,
-    tokenHash,
-    expiresAt: hours(24),
-    createdBy: member!.id,
-    ...overrides,
-  });
-  return { memberId: member!.id, tokenHash };
+  return { id: member!.id, partnershipId: p!.id };
 }
 
-describe("consumeInvite", () => {
-  it("returns the member of a valid invite", async () => {
-    const { memberId, tokenHash } = await newInvite();
-    expect(await consumeInvite(t.db, tokenHash)).toEqual({ memberId });
+/** An invite written directly, to reach states createInvite can't make. */
+async function rawInvite(
+  overrides: Partial<typeof invites.$inferInsert> = {},
+): Promise<{ memberId: string; token: string }> {
+  const member = await newMember();
+  const { token, tokenHash } = newToken();
+  await t.db.insert(invites).values({
+    memberId: member.id,
+    tokenHash,
+    expiresAt: hours(24),
+    ...overrides,
+  });
+  return { memberId: member.id, token };
+}
+
+describe("createInvite", () => {
+  it("stores only the hash of the token", async () => {
+    const member = await newMember();
+    const { token } = await createInvite(app.db, {
+      memberId: member.id,
+      createdBy: null,
+    });
+    const [row] = await t.db
+      .select()
+      .from(invites)
+      .where(eq(invites.memberId, member.id));
+    expect(row!.tokenHash).toBe(hashToken(token));
+    expect(JSON.stringify(row)).not.toContain(token);
+  });
+
+  it("expires in 24 hours", async () => {
+    const member = await newMember();
+    const { expiresAt } = await createInvite(app.db, {
+      memberId: member.id,
+      createdBy: null,
+    });
+    const diff = expiresAt.getTime() - hours(24).getTime();
+    expect(Math.abs(diff)).toBeLessThan(60_000);
+  });
+
+  it("writes an audit row without the hash", async () => {
+    const member = await newMember();
+    await createInvite(app.db, { memberId: member.id, createdBy: null });
+    const [invite] = await t.db
+      .select()
+      .from(invites)
+      .where(eq(invites.memberId, member.id));
+    const [audit] = await t.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.entityId, invite!.id));
+    expect(audit).toMatchObject({ actorId: null, action: "invite.create" });
+    expect(JSON.stringify(audit!.after)).not.toContain(invite!.tokenHash);
+  });
+});
+
+describe("previewInvite", () => {
+  it("shows the member and the partnership without using the invite", async () => {
+    const { token } = await rawInvite();
+    const preview = await previewInvite(app.db, token);
+    expect(preview).toEqual({
+      memberName: "Maria",
+      partnershipName: "Obra Teste",
+    });
+    expect(await previewInvite(app.db, token)).toEqual(preview);
+  });
+
+  it("returns null for an invite already used", async () => {
+    const { token } = await rawInvite({ usedAt: new Date() });
+    expect(await previewInvite(app.db, token)).toBeNull();
+  });
+});
+
+describe("acceptInvite", () => {
+  it("opens a session for the member of a valid invite", async () => {
+    const { memberId, token } = await rawInvite();
+    const result = await acceptInvite(app.db, token, {
+      device: "Android",
+      browser: "Chrome",
+    });
+    expect(result?.memberId).toBe(memberId);
+
+    const [session] = await t.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.memberId, memberId));
+    expect(session).toMatchObject({ device: "Android", browser: "Chrome" });
+    expect(session!.refreshTokenHash).toBe(hashToken(result!.sessionToken));
   });
 
   it("returns null for an unknown token", async () => {
-    expect(await consumeInvite(t.db, hash("nope"))).toBeNull();
+    expect(await acceptInvite(app.db, "nope")).toBeNull();
   });
 
   it("returns null the second time", async () => {
-    const { tokenHash } = await newInvite();
-    await consumeInvite(t.db, tokenHash);
-    expect(await consumeInvite(t.db, tokenHash)).toBeNull();
+    const { token } = await rawInvite();
+    await acceptInvite(app.db, token);
+    expect(await acceptInvite(app.db, token)).toBeNull();
   });
 
   it("returns null for an expired invite", async () => {
-    const { tokenHash } = await newInvite({
+    const { token } = await rawInvite({
       createdAt: hours(-48),
       expiresAt: hours(-24),
     });
-    expect(await consumeInvite(t.db, tokenHash)).toBeNull();
+    expect(await acceptInvite(app.db, token)).toBeNull();
   });
 
   it("returns null for a revoked invite", async () => {
-    const { tokenHash } = await newInvite({ revokedAt: new Date() });
-    expect(await consumeInvite(t.db, tokenHash)).toBeNull();
+    const { token } = await rawInvite({ revokedAt: new Date() });
+    expect(await acceptInvite(app.db, token)).toBeNull();
   });
 
   it("lets only one of two simultaneous taps through", async () => {
-    const { memberId, tokenHash } = await newInvite();
+    const { memberId, token } = await rawInvite();
     const results = await Promise.all([
-      consumeInvite(t.db, tokenHash),
-      consumeInvite(t.db, tokenHash),
+      acceptInvite(app.db, token),
+      acceptInvite(app.db, token),
     ]);
-    expect(results.filter((r) => r !== null)).toEqual([{ memberId }]);
+    const through = results.filter((r) => r !== null);
+    expect(through.map((r) => r.memberId)).toEqual([memberId]);
+    const rows = await t.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.memberId, memberId));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("tells the feed only on the member's first session", async () => {
+    const member = await newMember();
+    for (let i = 0; i < 2; i++) {
+      const { token } = await createInvite(app.db, {
+        memberId: member.id,
+        createdBy: null,
+      });
+      await acceptInvite(app.db, token);
+    }
+    const feed = await t.db
+      .select()
+      .from(activities)
+      .where(eq(activities.actorId, member.id));
+    expect(feed.map((a) => a.action)).toEqual(["member_joined"]);
+  });
+
+  it("audits the accept with the new session", async () => {
+    const { memberId, token } = await rawInvite();
+    await acceptInvite(app.db, token, { device: "Android" });
+    const [session] = await t.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.memberId, memberId));
+    const [audit] = await t.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.actorId, memberId));
+    expect(audit).toMatchObject({
+      action: "invite.accept",
+      after: { sessionId: session!.id, device: "Android" },
+    });
   });
 });
 
 describe("invites and sessions", () => {
   it("refuses an invite that expires before it is created", async () => {
-    expect(await pgErrorCode(newInvite({ expiresAt: hours(-1) }))).toBe(
+    expect(await pgErrorCode(rawInvite({ expiresAt: hours(-1) }))).toBe(
       "23514",
     );
   });
 
   it("refuses two sessions with the same refresh token", async () => {
-    const { memberId } = await newInvite();
-    const refreshTokenHash = hash(randomBytes(32).toString("base64url"));
-    await t.db.insert(sessions).values({ memberId, refreshTokenHash });
-    const again = t.db.insert(sessions).values({ memberId, refreshTokenHash });
-    expect(await pgErrorCode(again)).toBe("23505");
+    const member = await newMember();
+    const { tokenHash } = newToken();
+    const values = { memberId: member.id, refreshTokenHash: tokenHash };
+    await t.db.insert(sessions).values(values);
+    expect(await pgErrorCode(t.db.insert(sessions).values(values))).toBe(
+      "23505",
+    );
   });
 });

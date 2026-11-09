@@ -260,9 +260,11 @@ export const invites = pgTable(
     expiresAt: timestamp({ withTimezone: true }).notNull(),
     usedAt: timestamp({ withTimezone: true }),
     revokedAt: timestamp({ withTimezone: true }),
-    createdBy: uuid()
-      .notNull()
-      .references(() => members.id),
+    /**
+     * Null for an invite made by a command on the server: the first ones,
+     * before anybody has a session, and the emergency procedure.
+     */
+    createdBy: uuid().references(() => members.id),
     createdAt: createdAt(),
   },
   (t) => [
