@@ -1,0 +1,12 @@
+# Copies new backup snapshots to the home PC (docs/operacao.md). Installed
+# to /etc/systemd/system/ and started by partneroj-offsite-copy.timer.
+[Unit]
+Description=Partneroj off-site copy (restic copy to the home PC)
+Requires=docker.service
+After=docker.service wg-quick@wg0.service
+
+[Service]
+Type=oneshot
+User=solrac
+WorkingDirectory=/home/solrac/partneroj
+ExecStart=/usr/bin/docker compose -f infra/production/compose.yml run --rm -T backup copy-offsite.sh

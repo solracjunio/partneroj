@@ -50,5 +50,5 @@ COPY prototype /srv/prototipo
 FROM postgres:18-alpine AS backup
 RUN apk add --no-cache restic
 COPY infra/production/backup/backup.sh infra/production/backup/restore-check.sh \
-  infra/production/backup/heartbeat.sh /usr/local/bin/
+  infra/production/backup/heartbeat.sh infra/production/backup/copy-offsite.sh /usr/local/bin/
 USER postgres

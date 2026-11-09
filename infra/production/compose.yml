@@ -116,6 +116,10 @@ services:
       # Push monitors of Uptime Kuma; empty until they are created.
       BACKUP_PUSH_URL: ${BACKUP_PUSH_URL:-}
       RESTORE_CHECK_PUSH_URL: ${RESTORE_CHECK_PUSH_URL:-}
+      # The home PC's rest-server, through WireGuard (copy-offsite.sh).
+      OFFSITE_HOST: 10.77.0.2:8000
+      OFFSITE_PASSWORD: ${OFFSITE_PASSWORD:-}
+      OFFSITE_PUSH_URL: ${OFFSITE_PUSH_URL:-}
     volumes:
       # A host directory, not a volume: `docker compose down -v` removes
       # volumes, and must never take the backups along with the database.

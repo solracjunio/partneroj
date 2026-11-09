@@ -7,7 +7,7 @@ Docker Compose stack that runs on the VPS: Postgres, a one-shot `migrate` step, 
 - `Caddyfile`: `/api/*` goes to the API, `/prototipo/` serves the prototype, and every other path serves the web app.
 - `deploy.sh`: deploys `origin/main`, or a given commit, from your computer, with a backup right before the migrations.
 - `backup/`: `backup.sh` (pg_dump and roles into restic, with retention) and `restore-check.sh` (restores into a throwaway Postgres and checks the insert-only tables against production).
-- `systemd/`: timers for the nightly backup and the weekly restore check. Both scripts push their result to an Uptime Kuma push monitor (`backup/heartbeat.sh`).
+- `systemd/`: timers for the nightly backup, the weekly restore check and the hourly off-site copy to the home PC (`backup/copy-offsite.sh`, through WireGuard; see `infra/home-pc/`). Both scripts push their result to an Uptime Kuma push monitor (`backup/heartbeat.sh`).
 - `.env.example`: the secrets the server needs.
 
 How to deploy, roll back, back up, restore and rotate passwords: [docs/operacao.md](../../docs/operacao.md) (in Portuguese).
