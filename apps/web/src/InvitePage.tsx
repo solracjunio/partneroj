@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { api, type Failure, type InvitePreview } from "./api";
+import { InstallCard } from "./InstallCard";
 
 type State =
   | { step: "loading" }
@@ -86,18 +87,10 @@ export function InvitePage({ token }: { token: string }) {
         <section>
           <h1>Pronto, {state.preview.memberName}!</h1>
           <p>Você entrou na {state.preview.partnershipName}.</p>
-          <div className="notice">
-            <p>
-              <strong>Abra sempre por este navegador.</strong>
-            </p>
-            <p>
-              Você entrou por este navegador, e é nele que o Partneroj se lembra
-              de você. Em outro navegador, seria preciso um convite novo.
-            </p>
-          </div>
+          <InstallCard />
           <button
             type="button"
-            className="primary"
+            className="secondary"
             onClick={() => window.location.replace("/")}
           >
             Continuar

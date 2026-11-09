@@ -1,0 +1,13 @@
+// The service worker runs in a worker, not in a page: WebWorker types
+// instead of DOM (the two conflict, so it has its own tsconfig).
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2024", "WebWorker"],
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["."]
+}
