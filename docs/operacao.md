@@ -84,12 +84,13 @@ Cada snapshot guarda:
 | Toda noite, 03:30 (Brasília) | Backup `daily` | `partneroj-backup.timer` |
 | Antes de cada migration | Backup `pre-deploy` | `deploy.sh` |
 | Todo domingo, 05:00 | Teste de restauração | `partneroj-restore-check.timer` |
+| De hora em hora, no minuto 15 | Cópia para o PC de casa, se ele estiver ligado | `partneroj-offsite-copy.timer` |
 
 **Retenção** (plano, seção 11): 7 diários, 4 semanais e 12 mensais. Além disso, **todos** os snapshots dos últimos 7 dias são guardados, para que o backup `pre-deploy` de um dia com dois deploys não seja apagado pelo segundo.
 
 O teste de restauração roda toda semana, mais que o mensal do plano. O Uptime Kuma não aceita um intervalo de heartbeat maior que cerca de 24 dias, e um teste mensal daria alarme falso todo mês.
 
-> **Ainda falta (neste bloco):** a cópia para o PC de casa (WireGuard e rest-server) e o backup dos arquivos de comprovantes (quando o upload existir).
+> **Ainda falta:** o backup dos arquivos de comprovantes, quando o upload existir.
 
 ### Preparar (uma vez)
 
@@ -110,6 +111,94 @@ cd ~/partneroj && docker compose -f infra/production/compose.yml run --rm backup
 ```
 
 **A senha do restic** (`RESTIC_PASSWORD` no `.env`) fica no gerenciador de senhas e **num papel lacrado com outro sócio**. Não há como recuperá-la: sem ela, os backups são ilegíveis.
+
+### Cópia fora do servidor (PC de casa)
+
+Uma segunda cópia do repositório restic, no PC de casa, para que o backup sobreviva à perda da VPS. O PC fica atrás de CGNAT, então é **ele** que abre um túnel **WireGuard** até a VPS. Quando o PC está ligado, a VPS copia por esse túnel os snapshots novos (`restic copy`) para um **rest-server** no PC.
+
+```
+VPS 10.77.0.1  ◄══ túnel WireGuard (o PC abre, keepalive de 25 s) ══  PC 10.77.0.2
+  restic copy  ── HTTP :8000, usuário e senha ──►  rest-server --append-only, G:\partneroj-backup
+```
+
+**Proteções:**
+
+- **`--append-only`:** o rest-server aceita snapshots novos e recusa apagar ou sobrescrever (403). Mesmo com a VPS invadida, a senha do restic e a do rest-server em mãos, ninguém consegue destruir a cópia de casa pela rede. Isso foi testado: um `restic forget --prune` vindo da VPS foi recusado.
+- **O firewall do Windows** só aceita a porta 8000 vinda de `10.77.0.1` pela placa do túnel `partneroj`. A senha do rest-server fica na VPS (`OFFSITE_PASSWORD` no `.env`), e o PC guarda só o hash bcrypt.
+- **A pasta `G:\partneroj-backup`** só pode ser acessada por SYSTEM e Administradores. Um programa rodando com a sua conta não consegue ler nem alterar os backups.
+- **A mesma senha do restic** dos backups da VPS abre esta cópia. O envelope lacrado vale para as duas.
+
+#### Preparar a VPS (uma vez)
+
+```sh
+sudo apt-get install -y wireguard-tools
+# chave privada gerada no servidor, só ele a vê
+priv=$(wg genkey)
+printf '[Interface]\nAddress = 10.77.0.1/24\nListenPort = 51820\nPrivateKey = %s\n' "$priv" \
+  | sudo tee /etc/wireguard/wg0.conf >/dev/null
+sudo chmod 600 /etc/wireguard/wg0.conf
+sudo systemctl enable --now wg-quick@wg0
+sudo ufw allow 51820/udp comment "WireGuard backup tunnel"
+sudo wg show wg0 public-key   # vai no túnel do PC
+# a senha do rest-server, no .env, e o hash dela para o PC
+echo "OFFSITE_PASSWORD=$(openssl rand -hex 32)" >> ~/partneroj/infra/production/.env
+docker run --rm httpd:2.4-alpine htpasswd -nbB -C 12 partneroj "<OFFSITE_PASSWORD>"
+```
+
+#### Preparar o PC (uma vez)
+
+1. Instalar o WireGuard: `winget install --id WireGuard.WireGuard -e`.
+2. No app: **Adicionar túnel → Adicionar túnel vazio**, com o nome `partneroj`. O app gera a chave privada. Complete com:
+
+   ```ini
+   [Interface]
+   PrivateKey = (gerada pelo app)
+   Address = 10.77.0.2/32
+
+   [Peer]
+   PublicKey = <chave pública da VPS>
+   AllowedIPs = 10.77.0.1/32
+   Endpoint = 187.41.120.97:51820
+   PersistentKeepalive = 25
+   ```
+
+   O endpoint vai pelo IP porque o domínio também tem registro IPv6, e numa rede só IPv4 o túnel não subiria.
+3. Na VPS, acrescentar o PC como peer, com a chave **pública** dele:
+
+   ```sh
+   printf '\n[Peer]\nPublicKey = <chave pública do PC>\nAllowedIPs = 10.77.0.2/32\n' | sudo tee -a /etc/wireguard/wg0.conf
+   sudo wg set wg0 peer '<chave pública do PC>' allowed-ips 10.77.0.2/32
+   ```
+
+4. **Ativar** o túnel no app. Ele fica como serviço automático do Windows e sobe no boot.
+5. Num PowerShell **como administrador**, rodar `infra/home-pc/setup-rest-server.ps1` com o hash. Use **aspas simples**, porque o hash tem `$`:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\setup-rest-server.ps1 -Htpasswd 'partneroj:$2y$12$...'
+   ```
+
+   Ele baixa o rest-server 0.14.0 e confere o SHA256, cria a pasta com as permissões, a tarefa agendada (no boot, como SYSTEM) e a regra de firewall.
+6. Na VPS, instalar o timer: `sudo cp ~/partneroj/infra/production/systemd/partneroj-offsite-copy.* /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now partneroj-offsite-copy.timer`.
+
+O PC não pode entrar em suspensão, ou fica fora do ar enquanto dorme. Hoje a suspensão automática está desligada.
+
+#### Conferir
+
+```sh
+sudo wg show wg0                       # "latest handshake" recente = túnel de pé
+docker compose -f infra/production/compose.yml run --rm backup copy-offsite.sh
+```
+
+#### Limpar snapshots antigos no PC (uma vez por ano)
+
+Por ser append-only, a cópia de casa só cresce. A limpeza é feita **no próprio PC**, nunca pela rede. Num PowerShell como administrador, com o [restic para Windows](https://github.com/restic/restic/releases):
+
+```powershell
+$env:RESTIC_REPOSITORY = 'G:\partneroj-backup\partneroj'
+restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune
+```
+
+Ele pede a senha do restic (a mesma do `.env`).
 
 ### Testar a restauração
 
@@ -165,10 +254,11 @@ O **Uptime Kuma** roda na VPS e avisa no celular pelo **ntfy**. O que ele vigia:
 | API | HTTP em `https://partneroj.com.br/api/health`, a cada 60 s | a API não responde, ou o certificado vence em menos de 14 dias |
 | Backup diário | Push (heartbeat), intervalo de 26 h | um backup falha, ou nenhum chega em 26 h |
 | Teste de restauração | Push (heartbeat), intervalo de 8 dias | um teste falha, ou nenhum chega em 8 dias |
+| Cópia fora do servidor | Push (heartbeat), intervalo de 3 dias | uma cópia falha, ou nenhuma dá certo em 3 dias (plano, seção 11) |
 
-O backup e o teste avisam o Kuma ao terminar (`up`) ou ao falhar (`down`). Se um deles nem chegar a rodar (container quebrado, timer parado, servidor desligado), o aviso que não chega dispara o alerta do mesmo jeito.
+O backup, o teste e a cópia avisam o Kuma ao terminar (`up`) ou ao falhar (`down`). Um PC desligado não é falha: a cópia simplesmente não acontece, e só depois de 3 dias sem nenhuma cópia o Kuma avisa. Se um deles nem chegar a rodar (container quebrado, timer parado, servidor desligado), o aviso que não chega dispara o alerta do mesmo jeito.
 
-> **Limite conhecido:** o Kuma está na mesma VPS. Se a VPS inteira cair, ele cai junto e **não avisa**. Isso se fecha com um monitor fora do servidor, por exemplo no PC de casa quando o WireGuard existir.
+> **Limite conhecido:** o Kuma está na mesma VPS. Se a VPS inteira cair, ele cai junto e **não avisa**. Isso se fecha com um monitor fora do servidor, que ainda não existe.
 
 ### Abrir o painel
 
@@ -190,11 +280,13 @@ Os nomes dos menus abaixo são os da tradução para português e podem variar u
    - **HTTP(s)**, nome `API`, URL `https://partneroj.com.br/api/health`, intervalo 60 s, 2 tentativas. Em Avançado, marque **Notificação de vencimento do certificado**.
    - **Push**, nome `Backup diário`, intervalo de heartbeat `93600` (26 h).
    - **Push**, nome `Teste de restauração`, intervalo de heartbeat `691200` (8 dias).
+   - **Push**, nome `Cópia fora do servidor`, intervalo de heartbeat `259200` (3 dias).
 5. Cada monitor **Push** mostra uma URL `http://localhost:3001/api/push/<token>?status=up&msg=OK&ping=`. No `.env` do servidor, guarde só o começo dela, com o host trocado pelo nome do serviço:
 
    ```sh
    BACKUP_PUSH_URL=http://uptime-kuma:3001/api/push/<token do backup>
    RESTORE_CHECK_PUSH_URL=http://uptime-kuma:3001/api/push/<token do teste>
+   OFFSITE_PUSH_URL=http://uptime-kuma:3001/api/push/<token da cópia>
    ```
 
    O token é um segredo: quem tiver um pode fingir que o backup rodou.

@@ -38,8 +38,9 @@ restic backup --host partneroj --tag "$tag" "$work/roles.sql" "$work/partneroj.d
 # only the last snapshot of each day, so on a day with two deploys the
 # first pre-deploy snapshot, the one taken before the first migration,
 # would go; --keep-within keeps every snapshot of the last 7 days.
-restic forget --host partneroj --group-by host --keep-within 7d \
+# --retry-lock: the hourly off-site copy may hold a lock for a moment.
+restic forget --retry-lock 10m --host partneroj --group-by host --keep-within 7d \
   --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune
-restic check
+restic check --retry-lock 10m
 echo "backup done ($tag)"
 heartbeat "${BACKUP_PUSH_URL:-}" up

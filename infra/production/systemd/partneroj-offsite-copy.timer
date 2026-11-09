@@ -1,0 +1,11 @@
+[Unit]
+Description=Partneroj off-site copy, every hour
+
+[Timer]
+# At :15, away from the nightly backup at 03:30 (both use restic locks).
+# The PC is often off: each hour is one more chance.
+OnCalendar=*-*-* *:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
