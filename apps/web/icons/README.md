@@ -1,27 +1,29 @@
 # App icons
 
-`icon.svg` and `maskable.svg` are the sources. The PNGs in `../public` are rendered from them and committed, so the build needs no image tool:
+Two sources, rendered to the files in `../public`, which are committed so the build needs no image tool:
 
-| File                           | Size | Use                                                    |
-| ------------------------------ | ---- | ------------------------------------------------------ |
-| `pwa-192x192.png`              | 192  | Home screen and app list                               |
-| `pwa-512x512.png`              | 512  | Splash screen                                          |
-| `maskable-512x512.png`         | 512  | From `maskable.svg`: Android crops it to its own shape |
-| `apple-touch-icon-180x180.png` | 180  | iOS home screen                                        |
-| `favicon.svg`                  | any  | Browser tab (a copy of `icon.svg`)                     |
+| Source         | Files                                                                                        | Drawing         |
+| -------------- | -------------------------------------------------------------------------------------------- | --------------- |
+| `app-icon.svg` | `pwa-192x192.png`, `pwa-512x512.png`, `maskable-512x512.png`, `apple-touch-icon-180x180.png` | 70% of the size |
+| `favicon.svg`  | `favicon.svg` (a copy), for the browser tab                                                  | full size       |
 
-**The maskable icon has its own source.** Android shows only the central circle of an adaptive icon (66 of 108 dp, about 61% of the size), and some launchers zoom in further. The W3C safe zone (80%) is not enough: at that size the roof and the P were cut on a real phone. `maskable.svg` is the same drawing at 70% around the center, which keeps it inside a circle of radius 156 px (of 512) with room to spare.
+**Every app icon has room around the drawing**, because launchers crop icons to their own shape:
 
-To render again after changing `icon.svg`, with sharp in a scratch folder outside the repo:
+- Android shows only the central circle of an adaptive (maskable) icon: 66 of 108 dp, about 61% of the size. Some launchers zoom in further. The W3C safe zone (80%) is not enough.
+- A browser that makes a shortcut instead of an installed app (Brave, on Android) uses the `any` icon, and the launcher crops that one too.
+
+At full size, the roof and the P were cut on a real phone in both cases. At 70%, the drawing stays inside a circle of radius 156 px (of 512) with room to spare. The tab icon is tiny and never cropped, so it keeps the full size.
+
+To render again after changing `app-icon.svg`, with sharp in a scratch folder outside the repo:
 
 ```js
-for (const [source, name, size] of [
-  ["icon.svg", "pwa-192x192.png", 192],
-  ["icon.svg", "pwa-512x512.png", 512],
-  ["maskable.svg", "maskable-512x512.png", 512],
-  ["icon.svg", "apple-touch-icon-180x180.png", 180],
+for (const [name, size] of [
+  ["pwa-192x192.png", 192],
+  ["pwa-512x512.png", 512],
+  ["maskable-512x512.png", 512],
+  ["apple-touch-icon-180x180.png", 180],
 ]) {
-  await sharp(source, { density: 300 })
+  await sharp("app-icon.svg", { density: 300 })
     .resize(size, size)
     .png({ compressionLevel: 9 })
     .toFile(`../public/${name}`);
