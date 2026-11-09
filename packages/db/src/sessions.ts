@@ -3,7 +3,7 @@
 // is used keeps going, so in practice nobody has to enter again.
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import type { Database } from "./client.js";
-import { members, sessions } from "./schema.js";
+import { auditLog, members, sessions } from "./schema.js";
 import { hashToken } from "./tokens.js";
 
 export const SESSION_IDLE_DAYS = 180;
@@ -49,4 +49,42 @@ export async function findSession(
       role: members.role,
     });
   return row ?? null;
+}
+
+/**
+ * Ends every live session of a member, as after a lost phone (plan
+ * section 2). Returns how many were ended, or null when the member is not
+ * in the actor's partnership: the filter is in the query, so no caller
+ * can reach another partnership's members by forgetting a check.
+ */
+export async function revokeSessions(
+  db: Database,
+  input: { actorId: string; partnershipId: string; memberId: string },
+): Promise<number | null> {
+  return db.transaction(async (tx) => {
+    const [member] = await tx
+      .select({ id: members.id })
+      .from(members)
+      .where(
+        and(
+          eq(members.id, input.memberId),
+          eq(members.partnershipId, input.partnershipId),
+        ),
+      );
+    if (member === undefined) return null;
+
+    const ended = await tx
+      .update(sessions)
+      .set({ revokedAt: sql`now()` })
+      .where(and(eq(sessions.memberId, member.id), isNull(sessions.revokedAt)))
+      .returning({ id: sessions.id });
+
+    await tx.insert(auditLog).values({
+      actorId: input.actorId,
+      action: "session.revoke",
+      entityId: member.id,
+      after: { sessionIds: ended.map((s) => s.id) },
+    });
+    return ended.length;
+  });
 }
