@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AppModule } from "../app.module.js";
 import { DATABASE } from "../database/database.module.js";
 import { JOB_QUEUE } from "../jobs/jobs.module.js";
+import { RECEIPT_STORAGE } from "../receipts/storage.js";
 
 // The HTTP server type supertest accepts (its "supertest/types" subpath is not exported).
 type App = Parameters<typeof request>[0];
@@ -34,6 +35,8 @@ beforeAll(async () => {
     // These routes queue no jobs.
     .overrideProvider(JOB_QUEUE)
     .useValue({ stop: () => Promise.resolve() })
+    .overrideProvider(RECEIPT_STORAGE)
+    .useValue({})
     .compile();
   app = moduleRef.createNestApplication();
   await app.init();

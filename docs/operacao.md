@@ -36,7 +36,8 @@ Só o Caddy publica portas. Portas publicadas pelo Docker passam por cima do ufw
      echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)"
      echo "APP_DB_PASSWORD=$(openssl rand -hex 32)"
      echo "RESTIC_PASSWORD=$(openssl rand -hex 32)"
-     echo "BACKUP_DIR=/srv/partneroj-backup"; } > .env
+     echo "BACKUP_DIR=/srv/partneroj-backup"
+     echo "UPLOADS_DIR=/srv/partneroj-uploads"; } > .env
    chmod 600 .env
    ```
 
@@ -116,6 +117,22 @@ Use quando **os dois administradores** perderam o acesso. Quando só um perdeu, 
 2. `$cli invite <id>` e mandar o link para essa pessoa.
 3. Avisar os outros sócios. A auditoria registra o convite como `invite.create` com autor nulo, e qualquer um pode conferir.
 
+## Comprovantes
+
+As fotos e os PDFs dos comprovantes ficam em `/srv/partneroj-uploads` (`UPLOADS_DIR` no `.env`), um diretório do host montado na API. Pelo mesmo motivo do backup, não é um volume do Docker: um `docker compose down -v` apaga os volumes. A API grava ali como o usuário `node` (uid 1000), e o backup lê como o grupo `postgres` (gid 70).
+
+Cada arquivo fica em `receipts/<id do lançamento>/<sha256>.jpg` (ou `.pdf`). As fotos são reencodadas em JPEG de no máximo 2000 px, sem EXIF (a posição de GPS do celular sai junto). Como o nome vem do conteúdo, a mesma foto enviada de novo cai no mesmo arquivo.
+
+**Preparar (uma vez, antes do primeiro deploy com comprovantes):**
+
+```sh
+ssh partneroj
+sudo install -d -o 1000 -g 70 -m 750 /srv/partneroj-uploads
+echo "UPLOADS_DIR=/srv/partneroj-uploads" >> ~/partneroj/infra/production/.env
+```
+
+Sem a variável, o deploy para logo no começo (`UPLOADS_DIR` é obrigatória no `compose.yml`).
+
 ## Backup
 
 Um repositório **restic** criptografado em `/srv/partneroj-backup`, no disco da VPS, fora de qualquer volume do Docker. Um `docker compose down -v` apaga os volumes, e não pode levar o backup junto com o banco.
@@ -124,6 +141,7 @@ Cada snapshot guarda:
 
 - `partneroj.dump`: o banco inteiro (`pg_dump`, formato custom);
 - `roles.sql`: os papéis do cluster, sem as senhas. O `pg_dump` não os inclui, e o banco depende de `partneroj_app`.
+- `/uploads`: os arquivos dos comprovantes. O dump é feito antes de ler os arquivos, e a API grava o arquivo antes da linha no banco. Então todo comprovante do dump tem o seu arquivo no mesmo snapshot.
 
 | Quando | O quê | Como |
 | --- | --- | --- |
@@ -136,7 +154,7 @@ Cada snapshot guarda:
 
 O teste de restauração roda toda semana, mais que o mensal do plano. O Uptime Kuma não aceita um intervalo de heartbeat maior que cerca de 24 dias, e um teste mensal daria alarme falso todo mês.
 
-> **Ainda falta:** o backup dos arquivos de comprovantes, quando o upload existir.
+O teste de restauração também confere os comprovantes: cada linha de `receipts` do banco restaurado precisa ter o seu arquivo no snapshot, com o mesmo SHA-256.
 
 ### Preparar (uma vez)
 
@@ -288,8 +306,36 @@ Só em caso de perda: servidor novo, banco corrompido ou migration que estragou 
    docker compose -f infra/production/compose.yml run --rm backup bash -c \
      "restic dump <id> /tmp/backup/roles.sql | grep -v '^CREATE ROLE partneroj;\$' | psql -d postgres -v ON_ERROR_STOP=1"
    ```
-4. Fazer o deploy de novo (`deploy.sh`). O `migrate` aplica a senha do `partneroj_api`, que o backup não guarda.
-5. Conferir o app e, quando existir, a regra de ouro.
+4. Restaurar os arquivos dos comprovantes do mesmo snapshot. O container de backup roda sem nenhuma capacidade do Linux. Para esta execução, devolva só `CHOWN` e `FOWNER`, senão os arquivos voltam com o dono errado e o `restic` termina com erro. O destino precisa ser uma pasta do root:
+
+   ```sh
+   sudo install -d -o 0 -g 0 -m 700 /srv/partneroj-uploads-restore
+   docker compose -f infra/production/compose.yml run --rm --user root \
+     --cap-add CHOWN --cap-add FOWNER -v /srv/partneroj-uploads-restore:/restore \
+     backup restic restore <id> --target /restore --include /uploads
+   sudo cp -a /srv/partneroj-uploads-restore/uploads/. /srv/partneroj-uploads/
+   sudo rm -r /srv/partneroj-uploads-restore
+   ```
+
+5. Fazer o deploy de novo (`deploy.sh`). O `migrate` aplica a senha do `partneroj_api`, que o backup não guarda.
+6. Conferir o app e, quando existir, a regra de ouro.
+
+### Zerar o banco (antes de começar a usar de verdade)
+
+Enquanto o app é testado com dados fictícios, a produção acumula sociedades e lançamentos de teste. A auditoria só aceita inserção, então eles não podem ser apagados pelo caminho normal. Antes de entrar com os dados reais, o banco é recriado vazio. Isso foi feito uma vez em 09/11/2026.
+
+```sh
+cd ~/partneroj
+compose="docker compose -f infra/production/compose.yml"
+$compose run --rm backup backup.sh before-restore   # o estado de teste fica num snapshot
+$compose stop api worker caddy
+$compose run --rm backup psql -d postgres -v ON_ERROR_STOP=1 \
+  -c "DROP DATABASE partneroj WITH (FORCE)" \
+  -c "CREATE DATABASE partneroj OWNER partneroj"
+sudo find /srv/partneroj-uploads -mindepth 1 -delete   # os comprovantes de teste
+```
+
+Depois, rode o `deploy.sh`. O `migrate` cria tudo de novo num banco vazio. Enquanto o site estiver fora, o Uptime Kuma avisa a queda pelo ntfy, e isso é esperado.
 
 ## Monitoramento
 
