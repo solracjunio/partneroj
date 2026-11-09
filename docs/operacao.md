@@ -88,6 +88,18 @@ cli="docker compose -f infra/production/compose.yml run --rm --no-deps api node 
 $cli create-partnership --name "<nome da obra>" --admin "<nome>" --admin "<nome>" [--partner "<nome>"] [--reader "<nome>"]
 ```
 
+**Criar o projeto** (a obra) com o peso de cada sócio. O id da sociedade aparece no fim de cada linha de `$cli list-members`. Os pesos são fixos durante todo o projeto (ADR 0002), e a ordem de desempate é sorteada na criação e impressa pelo comando. Leitores não têm peso.
+
+```sh
+$cli create-project --partnership <id da sociedade> --name "<nome>" --starts-on AAAA-MM-DD --weight <id do membro>=<peso> --weight ...
+```
+
+**Criar as categorias** da sociedade, que são os botões de "O que foi" no app. Um nome que já existe é ignorado:
+
+```sh
+$cli add-categories --partnership <id da sociedade> --name Material --name Taxas --name Outro
+```
+
 **Gerar um convite** para um membro (o id vem de `$cli list-members`):
 
 ```sh

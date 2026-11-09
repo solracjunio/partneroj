@@ -74,6 +74,7 @@ export async function createPartnership(
 }
 
 export interface MemberListing extends CreatedMember {
+  partnershipId: string;
   partnershipName: string;
 }
 
@@ -84,6 +85,7 @@ export async function listMembers(db: Database): Promise<MemberListing[]> {
       id: members.id,
       name: members.name,
       role: members.role,
+      partnershipId: partnerships.id,
       partnershipName: partnerships.name,
     })
     .from(members)
