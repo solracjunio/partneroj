@@ -2,10 +2,12 @@ import "reflect-metadata";
 
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
+import { createDatabase } from "@partneroj/db";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AppModule } from "../app.module.js";
+import { DATABASE } from "../database/database.module.js";
 
 // The HTTP server type supertest accepts (its "supertest/types" subpath is not exported).
 type App = Parameters<typeof request>[0];
@@ -14,9 +16,14 @@ describe("GET /health", () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
+    // /health doesn't touch the database. A pool connects only on its
+    // first query, so this one never opens a connection.
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(DATABASE)
+      .useValue(createDatabase("postgres://unused@127.0.0.1:1/unused"))
+      .compile();
     app = moduleRef.createNestApplication();
     await app.init();
   });

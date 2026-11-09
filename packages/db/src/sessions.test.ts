@@ -1,8 +1,8 @@
-import { eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { acceptInvite, createInvite } from "./invites.js";
-import { members, partnerships, sessions } from "./schema.js";
-import { findSession, SESSION_IDLE_DAYS } from "./sessions.js";
+import { auditLog, members, partnerships, sessions } from "./schema.js";
+import { findSession, revokeSessions, SESSION_IDLE_DAYS } from "./sessions.js";
 import {
   connectAsApp,
   startTestDatabase,
@@ -99,5 +99,54 @@ describe("findSession", () => {
       .from(sessions)
       .where(eq(sessions.memberId, memberId));
     expect(Number(row!.idleSeconds)).toBeLessThan(60);
+  });
+});
+
+describe("revokeSessions", () => {
+  it("ends every live session of the member", async () => {
+    const { memberId, partnershipId, sessionToken } = await signedIn();
+    const revoked = await revokeSessions(app.db, {
+      actorId: memberId,
+      partnershipId,
+      memberId,
+    });
+    expect(revoked).toBe(1);
+    expect(await findSession(app.db, sessionToken)).toBeNull();
+  });
+
+  it("audits which sessions were ended", async () => {
+    const { memberId, partnershipId } = await signedIn();
+    await revokeSessions(app.db, {
+      actorId: memberId,
+      partnershipId,
+      memberId,
+    });
+    const [audit] = await t.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.action, "session.revoke"))
+      .orderBy(desc(auditLog.id))
+      .limit(1);
+    const [session] = await t.db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(eq(sessions.memberId, memberId));
+    expect(audit).toMatchObject({
+      actorId: memberId,
+      entityId: memberId,
+      after: { sessionIds: [session!.id] },
+    });
+  });
+
+  it("refuses a member of another partnership", async () => {
+    const admin = await signedIn();
+    const other = await signedIn();
+    const revoked = await revokeSessions(app.db, {
+      actorId: admin.memberId,
+      partnershipId: admin.partnershipId,
+      memberId: other.memberId,
+    });
+    expect(revoked).toBeNull();
+    expect(await findSession(app.db, other.sessionToken)).not.toBeNull();
   });
 });

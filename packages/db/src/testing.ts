@@ -1,4 +1,7 @@
 // Test helper: a real Postgres 18 in Docker (Testcontainers), migrated.
+// Exported as @partneroj/db/testing for the apps' tests. It is built into
+// dist, but production never imports it: Testcontainers is a dev
+// dependency, missing from the production image.
 import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,

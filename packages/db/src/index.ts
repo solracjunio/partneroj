@@ -27,6 +27,7 @@ export {
 export * from "./schema.js";
 export {
   findSession,
+  revokeSessions,
   SESSION_IDLE_DAYS,
   type SessionMember,
 } from "./sessions.js";
