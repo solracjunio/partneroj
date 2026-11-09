@@ -84,9 +84,18 @@ $$`;
 /**
  * Starts pg-boss and its queues. As the app, call installJobQueue() first
  * (at deploy, as the owner); as the owner, as in most tests, it installs.
+ *
+ * sendOnly is for the API, which only queues jobs: the worker alone runs
+ * pg-boss's maintenance and schedules, so they don't run twice.
  */
-export async function startJobQueue(connectionString: string): Promise<PgBoss> {
-  const boss = new PgBoss({ connectionString });
+export async function startJobQueue(
+  connectionString: string,
+  options: { sendOnly?: boolean } = {},
+): Promise<PgBoss> {
+  const boss = new PgBoss({
+    connectionString,
+    ...(options.sendOnly ? { supervise: false, schedule: false } : {}),
+  });
   // An EventEmitter without an "error" listener crashes the process.
   boss.on("error", (error) => console.error("pg-boss", error));
   await boss.start();

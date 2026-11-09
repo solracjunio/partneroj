@@ -4,7 +4,7 @@
 import { eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import type { Database } from "./client.js";
-import { queueEntryNotification } from "./jobs.js";
+import { queueEntryNotification, type Transaction } from "./jobs.js";
 import { activities, auditLog, entries, projects } from "./schema.js";
 
 export type NewEntry = typeof entries.$inferInsert;
@@ -28,28 +28,38 @@ export async function recordEntry(
   boss: PgBoss,
   entry: NewEntry,
 ): Promise<Entry> {
-  return db.transaction(async (tx) => {
-    const [row] = await tx.insert(entries).values(entry).returning();
-    const [project] = await tx
-      .select({ partnershipId: projects.partnershipId })
-      .from(projects)
-      .where(eq(projects.id, row!.projectId));
+  return db.transaction((tx) => recordEntryIn(tx, boss, entry));
+}
 
-    await tx.insert(activities).values({
-      partnershipId: project!.partnershipId,
-      actorId: row!.authorId,
-      action: row!.reversalOf ? "entry_reversed" : "entry_recorded",
-      entryId: row!.id,
-    });
+/**
+ * The same, inside the caller's transaction: for callers that check
+ * something first and need the check and the insert to commit together.
+ */
+export async function recordEntryIn(
+  tx: Transaction,
+  boss: PgBoss,
+  entry: NewEntry,
+): Promise<Entry> {
+  const [row] = await tx.insert(entries).values(entry).returning();
+  const [project] = await tx
+    .select({ partnershipId: projects.partnershipId })
+    .from(projects)
+    .where(eq(projects.id, row!.projectId));
 
-    await tx.insert(auditLog).values({
-      actorId: row!.authorId,
-      action: row!.reversalOf ? "entry.reverse" : "entry.record",
-      entityId: row!.id,
-      after: auditJson(row!),
-    });
-
-    await queueEntryNotification(boss, tx, row!.id);
-    return row!;
+  await tx.insert(activities).values({
+    partnershipId: project!.partnershipId,
+    actorId: row!.authorId,
+    action: row!.reversalOf ? "entry_reversed" : "entry_recorded",
+    entryId: row!.id,
   });
+
+  await tx.insert(auditLog).values({
+    actorId: row!.authorId,
+    action: row!.reversalOf ? "entry.reverse" : "entry.record",
+    entityId: row!.id,
+    after: auditJson(row!),
+  });
+
+  await queueEntryNotification(boss, tx, row!.id);
+  return row!;
 }

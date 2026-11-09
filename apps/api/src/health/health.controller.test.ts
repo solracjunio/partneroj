@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AppModule } from "../app.module.js";
 import { DATABASE } from "../database/database.module.js";
+import { JOB_QUEUE } from "../jobs/jobs.module.js";
 
 // The HTTP server type supertest accepts (its "supertest/types" subpath is not exported).
 type App = Parameters<typeof request>[0];
@@ -23,6 +24,8 @@ describe("GET /health", () => {
     })
       .overrideProvider(DATABASE)
       .useValue(createDatabase("postgres://unused@127.0.0.1:1/unused"))
+      .overrideProvider(JOB_QUEUE)
+      .useValue({ stop: () => Promise.resolve() })
       .compile();
     app = moduleRef.createNestApplication();
     await app.init();
