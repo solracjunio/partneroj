@@ -4,8 +4,10 @@
 import type {
   CurrentProject,
   Feed,
+  MarkRead,
   NewExpense,
   RecordedExpense,
+  UnreadCount,
 } from "@partneroj/contracts";
 
 export interface InvitePreview {
@@ -103,6 +105,21 @@ export const api = {
         : `/activities?before=${encodeURIComponent(before)}`,
       {},
       json<Feed>,
+    ),
+
+  /** How many activities are new: the number on the home button. */
+  unreadCount: () => call("/activities/unread", {}, json<UnreadCount>),
+
+  /** The activities the screen showed are now read. */
+  markRead: (body: MarkRead) =>
+    call(
+      "/activities/read",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      () => Promise.resolve(undefined),
     ),
 
   /** The receipt of an entry: the body is the file itself. */

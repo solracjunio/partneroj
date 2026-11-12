@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { api, type Me, type Result } from "./api";
+import { feedButtonLabel } from "./feed";
 import { InstallCard } from "./InstallCard";
 import { navigate } from "./routes";
 
@@ -10,11 +11,17 @@ import { navigate } from "./routes";
  */
 export function HomePage() {
   const [me, setMe] = useState<Result<Me> | null>(null);
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     let current = true;
     void api.me().then((result) => {
       if (current) setMe(result);
+    });
+    // Only a hint on the button: without it, the button just says
+    // "Atividades".
+    void api.unreadCount().then((result) => {
+      if (current && result.ok) setUnread(result.value.count);
     });
     return () => {
       current = false;
@@ -43,7 +50,7 @@ export function HomePage() {
             className="secondary"
             onClick={() => navigate("/atividades")}
           >
-            Atividades
+            {feedButtonLabel(unread)}
           </button>
         </div>
         <p className="muted">Os saldos chegam nas próximas versões.</p>

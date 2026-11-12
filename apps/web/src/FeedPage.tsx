@@ -2,7 +2,7 @@ import type { FeedItem } from "@partneroj/contracts";
 import { useEffect, useState } from "react";
 
 import { api, type Failure, type Me } from "./api";
-import { describeItem, formatWhen, receiptLabel } from "./feed";
+import { describeItem, formatWhen, receiptLabel, unreadIds } from "./feed";
 
 const loadProblemText: Record<Failure, string> = {
   offline: "Sem conexão. Confira a internet e toque em Tentar de novo.",
@@ -42,6 +42,10 @@ export function FeedPage() {
       before === undefined ? page.value.items : [...shown, ...page.value.items],
     );
     setNext(page.value.next);
+    // Seen now, so read from the next visit on; the "Novo" badges stay
+    // for this one. A lost call only means they show once more.
+    const seen = unreadIds(page.value.items);
+    if (seen.length > 0) void api.markRead({ ids: seen });
   }
 
   useEffect(() => {

@@ -1,7 +1,13 @@
 import type { FeedEntry, FeedItem } from "@partneroj/contracts";
 import { describe, expect, it } from "vitest";
 
-import { describeItem, formatWhen, receiptLabel } from "./feed";
+import {
+  describeItem,
+  feedButtonLabel,
+  formatWhen,
+  receiptLabel,
+  unreadIds,
+} from "./feed";
 
 const joao = { id: "j", name: "João" };
 
@@ -122,5 +128,24 @@ describe("receiptLabel", () => {
   it("names a photo and a PDF apart", () => {
     expect(receiptLabel("image/jpeg")).toBe("Ver foto do comprovante");
     expect(receiptLabel("application/pdf")).toBe("Ver comprovante (PDF)");
+  });
+});
+
+describe("unreadIds", () => {
+  it("takes only the items still new", () => {
+    const items = [
+      item({ id: "a", unread: true }),
+      item({ id: "b", unread: false }),
+      item({ id: "c", unread: true }),
+    ];
+    expect(unreadIds(items)).toEqual(["a", "c"]);
+  });
+});
+
+describe("feedButtonLabel", () => {
+  it("shows how many are new, in the singular for one", () => {
+    expect(feedButtonLabel(0)).toBe("Atividades");
+    expect(feedButtonLabel(1)).toBe("Atividades (1 nova)");
+    expect(feedButtonLabel(3)).toBe("Atividades (3 novas)");
   });
 });

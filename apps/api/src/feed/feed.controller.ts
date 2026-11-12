@@ -1,8 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
   Header,
+  HttpCode,
   Inject,
+  Post,
   Query,
   UseGuards,
 } from "@nestjs/common";
@@ -11,8 +14,17 @@ import {
   FEED_PAGE_SIZE,
   feedQuery,
   type FeedQuery,
+  markRead,
+  type MarkRead,
+  type UnreadCount,
 } from "@partneroj/contracts";
-import { type Database, listFeed, type SessionMember } from "@partneroj/db";
+import {
+  countUnread,
+  type Database,
+  listFeed,
+  markFeedRead,
+  type SessionMember,
+} from "@partneroj/db";
 
 import { CurrentMember, SessionGuard } from "../auth/session.guard.js";
 import { DATABASE } from "../database/database.module.js";
@@ -64,5 +76,34 @@ export class FeedController {
       })),
       next: page.next,
     };
+  }
+
+  /** The number on the home screen's "Atividades" button. */
+  @Get("activities/unread")
+  @Header("Cache-Control", "no-store")
+  async unread(@CurrentMember() member: SessionMember): Promise<UnreadCount> {
+    return {
+      count: await countUnread(this.db, {
+        partnershipId: member.partnershipId,
+        memberId: member.memberId,
+      }),
+    };
+  }
+
+  /**
+   * The activities the screen showed are now read by this member. Readers
+   * too: it is their own mark, not a change to the partnership's data.
+   */
+  @Post("activities/read")
+  @HttpCode(204)
+  async markRead(
+    @CurrentMember() member: SessionMember,
+    @Body(new ZodBody(markRead)) body: MarkRead,
+  ): Promise<void> {
+    await markFeedRead(this.db, {
+      partnershipId: member.partnershipId,
+      memberId: member.memberId,
+      ids: body.ids,
+    });
   }
 }

@@ -9,9 +9,12 @@ export {
 export {
   FEED_PAGE_SIZE,
   feedQuery,
+  markRead,
   type Feed,
   type FeedAction,
   type FeedEntry,
   type FeedItem,
   type FeedQuery,
+  type MarkRead,
+  type UnreadCount,
 } from "./feed.js";
