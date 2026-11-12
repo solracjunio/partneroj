@@ -316,3 +316,68 @@ describe("POST /entries/:entryId/reverse", () => {
       .expect(401);
   });
 });
+
+describe("GET /entries/:entryId", () => {
+  async function recorded() {
+    const s = await seed();
+    const joao = await signIn(s.joao);
+    const response = await http()
+      .post("/entries/expenses")
+      .set("Cookie", joao)
+      .send(body(s))
+      .expect(201);
+    return { s, joao, entryId: (response.body as { id: string }).id };
+  }
+
+  it("shows the entry to a reader, without the undo", async () => {
+    const { s, entryId } = await recorded();
+    const leo = await signIn(s.leo);
+    const response = await http()
+      .get(`/entries/${entryId}`)
+      .set("Cookie", leo)
+      .expect(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.body).toMatchObject({
+      id: entryId,
+      amountCents: "15000",
+      category: "Material",
+      description: "cimento",
+      paidBy: { name: "João" },
+      author: { name: "João" },
+      status: "confirmed",
+      reversal: null,
+      canReverse: false,
+    });
+  });
+
+  it("offers the undo to the author, and shows it after", async () => {
+    const { joao, entryId } = await recorded();
+    const before = await http().get(`/entries/${entryId}`).set("Cookie", joao);
+    expect((before.body as { canReverse: boolean }).canReverse).toBe(true);
+    await http()
+      .post(`/entries/${entryId}/reverse`)
+      .set("Cookie", joao)
+      .send({ reason: "errado" })
+      .expect(201);
+    const after = await http().get(`/entries/${entryId}`).set("Cookie", joao);
+    expect(after.body).toMatchObject({
+      status: "reversed",
+      reversal: { reason: "errado", by: { name: "João" } },
+      canReverse: false,
+    });
+  });
+
+  it("answers 404 for another partnership's entry and for a non-id", async () => {
+    const { entryId } = await recorded();
+    const other = await seed("Outra Obra");
+    const outsider = await signIn(other.joao);
+    for (const id of [entryId, "abc"]) {
+      await http().get(`/entries/${id}`).set("Cookie", outsider).expect(404);
+    }
+  });
+
+  it("answers 401 without a session", async () => {
+    const { entryId } = await recorded();
+    await http().get(`/entries/${entryId}`).expect(401);
+  });
+});
