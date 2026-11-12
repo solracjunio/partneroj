@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { recordExpense } from "./expenses.js";
-import { listFeed } from "./feed.js";
+import { countUnread, listFeed, markFeedRead } from "./feed.js";
 import { installJobQueue, startJobQueue } from "./jobs.js";
 import { createPartnership } from "./partnerships.js";
 import { addCategories, createProject } from "./projects.js";
@@ -231,5 +231,86 @@ describe("listFeed", () => {
     const other = await seed("Outra Obra");
     await spend(other);
     expect((await feedOf(s, s.maria)).rows).toEqual([]);
+  });
+});
+
+describe("markFeedRead", () => {
+  it("marks the given activities read, for that member only", async () => {
+    const s = await seed();
+    await spend(s);
+    const [row] = (await feedOf(s, s.maria)).rows;
+    const scope = { partnershipId: s.partnershipId, memberId: s.maria };
+    expect(await markFeedRead(app.db, { ...scope, ids: [row!.id] })).toBe(1);
+    expect((await feedOf(s, s.maria)).rows[0]!.unread).toBe(false);
+    // João's own activity was never unread to him, and stays so.
+    expect((await feedOf(s, s.joao)).rows[0]!.unread).toBe(false);
+  });
+
+  it("changes nothing the second time", async () => {
+    const s = await seed();
+    await spend(s);
+    const [row] = (await feedOf(s, s.maria)).rows;
+    const input = {
+      partnershipId: s.partnershipId,
+      memberId: s.maria,
+      ids: [row!.id],
+    };
+    await markFeedRead(app.db, input);
+    expect(await markFeedRead(app.db, input)).toBe(0);
+  });
+
+  it("skips an activity of another partnership", async () => {
+    const s = await seed();
+    const other = await seed("Outra Obra");
+    await spend(other);
+    const [foreign] = (await feedOf(other, other.maria)).rows;
+    expect(
+      await markFeedRead(app.db, {
+        partnershipId: s.partnershipId,
+        memberId: s.maria,
+        ids: [foreign!.id],
+      }),
+    ).toBe(0);
+    expect((await feedOf(other, other.maria)).rows[0]!.unread).toBe(true);
+  });
+
+  it("does nothing for an empty list", async () => {
+    const s = await seed();
+    expect(
+      await markFeedRead(app.db, {
+        partnershipId: s.partnershipId,
+        memberId: s.maria,
+        ids: [],
+      }),
+    ).toBe(0);
+  });
+});
+
+describe("countUnread", () => {
+  it("counts others' unread activities, down to zero once read", async () => {
+    const s = await seed();
+    await spend(s, 100n);
+    await spend(s, 200n);
+    const scope = { partnershipId: s.partnershipId, memberId: s.maria };
+    expect(await countUnread(app.db, scope)).toBe(2);
+    // João did both: nothing is news to him.
+    expect(await countUnread(app.db, { ...scope, memberId: s.joao })).toBe(0);
+    const ids = (await feedOf(s, s.maria)).rows.map((r) => r.id);
+    await markFeedRead(app.db, { ...scope, ids: ids.slice(0, 1) });
+    expect(await countUnread(app.db, scope)).toBe(1);
+    await markFeedRead(app.db, { ...scope, ids });
+    expect(await countUnread(app.db, scope)).toBe(0);
+  });
+
+  it("doesn't count another partnership's activities", async () => {
+    const s = await seed();
+    const other = await seed("Outra Obra");
+    await spend(other);
+    expect(
+      await countUnread(app.db, {
+        partnershipId: s.partnershipId,
+        memberId: s.maria,
+      }),
+    ).toBe(0);
   });
 });

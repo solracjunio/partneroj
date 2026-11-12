@@ -49,3 +49,15 @@ export interface Feed {
   /** The `before` of the next page, or null on the last one. */
   next: string | null;
 }
+
+/** The activities shown on the screen, to mark as read (one page at most). */
+export const markRead = z.object({
+  ids: z.array(z.uuid()).min(1).max(FEED_PAGE_SIZE),
+});
+
+export type MarkRead = z.infer<typeof markRead>;
+
+/** How many activities are new to whoever asks. */
+export interface UnreadCount {
+  count: number;
+}

@@ -1,6 +1,17 @@
 // The "Atividades" feed (plan section 4): a partnership's activities,
 // newest first, with the entry each one is about.
-import { aliasedTable, and, desc, eq, inArray, lt } from "drizzle-orm";
+import {
+  aliasedTable,
+  and,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  lt,
+  ne,
+  sql,
+} from "drizzle-orm";
 import type { Database } from "./client.js";
 import {
   activities,
@@ -142,4 +153,65 @@ export async function listFeed(
   }));
   const next = found.length > input.limit ? page.at(-1)!.id : null;
   return { rows, next };
+}
+
+/**
+ * Marks activities as read by the member. Ids of another partnership are
+ * skipped by the WHERE, and one already read stays as it was (ON CONFLICT
+ * DO NOTHING on the (activity, member) key): opening the feed twice, or
+ * a retry, changes nothing. Returns how many were newly marked.
+ */
+export async function markFeedRead(
+  db: Database,
+  input: { partnershipId: string; memberId: string; ids: string[] },
+): Promise<number> {
+  if (input.ids.length === 0) return 0;
+  const marked = await db
+    .insert(activityReads)
+    .select(
+      db
+        .select({
+          activityId: activities.id,
+          memberId: sql<string>`${input.memberId}::uuid`.as("member_id"),
+          readAt: sql<Date>`now()`.as("read_at"),
+        })
+        .from(activities)
+        .where(
+          and(
+            inArray(activities.id, input.ids),
+            eq(activities.partnershipId, input.partnershipId),
+          ),
+        ),
+    )
+    .onConflictDoNothing()
+    .returning({ activityId: activityReads.activityId });
+  return marked.length;
+}
+
+/**
+ * How many activities of the partnership the member hasn't read, leaving
+ * out their own: the number on the home screen's "Atividades" button.
+ */
+export async function countUnread(
+  db: Database,
+  input: { partnershipId: string; memberId: string },
+): Promise<number> {
+  const [row] = await db
+    .select({ unread: count() })
+    .from(activities)
+    .leftJoin(
+      activityReads,
+      and(
+        eq(activityReads.activityId, activities.id),
+        eq(activityReads.memberId, input.memberId),
+      ),
+    )
+    .where(
+      and(
+        eq(activities.partnershipId, input.partnershipId),
+        ne(activities.actorId, input.memberId),
+        isNull(activityReads.activityId),
+      ),
+    );
+  return row!.unread;
 }

@@ -87,3 +87,14 @@ export function receiptLabel(contentType: string): string {
     ? "Ver comprovante (PDF)"
     : "Ver foto do comprovante";
 }
+
+/** The ids to mark as read: the page's items still new to the reader. */
+export function unreadIds(items: FeedItem[]): string[] {
+  return items.filter((item) => item.unread).map((item) => item.id);
+}
+
+/** The home button: "Atividades", or "Atividades (3 novas)". */
+export function feedButtonLabel(unread: number): string {
+  if (unread <= 0) return "Atividades";
+  return `Atividades (${unread} ${unread === 1 ? "nova" : "novas"})`;
+}

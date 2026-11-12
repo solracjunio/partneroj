@@ -97,6 +97,22 @@ describe("api", () => {
     );
   });
 
+  it("reads the unread count and marks activities read", async () => {
+    const fetch = answer(200, { count: 2 });
+    expect(await api.unreadCount()).toEqual({ ok: true, value: { count: 2 } });
+    expect(fetch).toHaveBeenCalledWith("/api/activities/unread", {});
+    const marked = answer(204);
+    expect(await api.markRead({ ids: ["a"] })).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(marked).toHaveBeenCalledWith("/api/activities/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ["a"] }),
+    });
+  });
+
   it("tells when there is no connection", async () => {
     vi.stubGlobal("fetch", () => Promise.reject(new TypeError("offline")));
     expect(await api.me()).toEqual({ ok: false, failure: "offline" });

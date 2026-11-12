@@ -196,3 +196,60 @@ describe("GET /activities", () => {
     await http().get("/activities").expect(401);
   });
 });
+
+describe("unread and read marks", () => {
+  it("counts what is new, and marking it read brings the count down", async () => {
+    const s = await seed();
+    const joao = await signIn(s.joao);
+    await http()
+      .post("/entries/expenses")
+      .set("Cookie", joao)
+      .send(body(s))
+      .expect(201);
+    const leo = await signIn(s.leo);
+    // João joining and his expense; Leo's own joining doesn't count.
+    const before = await http()
+      .get("/activities/unread")
+      .set("Cookie", leo)
+      .expect(200);
+    expect(before.headers["cache-control"]).toBe("no-store");
+    expect(before.body).toEqual({ count: 2 });
+
+    const feed = (await http().get("/activities").set("Cookie", leo))
+      .body as FeedBody;
+    await http()
+      .post("/activities/read")
+      .set("Cookie", leo)
+      .send({ ids: feed.items.map((i) => i.id) })
+      .expect(204);
+    // A reader marks too: it is his own mark. A second time is harmless.
+    await http()
+      .post("/activities/read")
+      .set("Cookie", leo)
+      .send({ ids: feed.items.map((i) => i.id) })
+      .expect(204);
+
+    const after = await http().get("/activities/unread").set("Cookie", leo);
+    expect(after.body).toEqual({ count: 0 });
+    const again = (await http().get("/activities").set("Cookie", leo))
+      .body as FeedBody;
+    expect(again.items.every((i) => !i.unread)).toBe(true);
+  });
+
+  it("answers 400 for an empty list or ids that are not ids", async () => {
+    const s = await seed();
+    const joao = await signIn(s.joao);
+    for (const ids of [[], ["abc"]]) {
+      await http()
+        .post("/activities/read")
+        .set("Cookie", joao)
+        .send({ ids })
+        .expect(400);
+    }
+  });
+
+  it("answers 401 without a session", async () => {
+    await http().get("/activities/unread").expect(401);
+    await http().post("/activities/read").send({ ids: [] }).expect(401);
+  });
+});
