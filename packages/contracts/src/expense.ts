@@ -39,3 +39,21 @@ export interface CurrentProject {
   project: { id: string; name: string };
   categories: { id: string; name: string }[];
 }
+
+/**
+ * "Desfazer" (ADR 0006): why the entry is undone. Required, and it goes
+ * to the other partners with the notice.
+ */
+export const reverseEntryBody = z.object({
+  reason: z.string().trim().min(1).max(200),
+});
+
+export type ReverseEntryBody = z.infer<typeof reverseEntryBody>;
+
+/** The reversal, as the API returns it. */
+export interface RecordedReversal {
+  id: string;
+  reversalOf: string;
+  /** Negative: the original's amount with the sign inverted. */
+  amountCents: string;
+}

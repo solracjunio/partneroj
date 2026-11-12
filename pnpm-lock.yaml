@@ -288,6 +288,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@partneroj/domain':
+        specifier: workspace:*
+        version: link:../domain
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(pg@8.23.1)

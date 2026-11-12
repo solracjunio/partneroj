@@ -34,6 +34,12 @@ export {
   type EntryNotification,
   type Transaction,
 } from "./jobs.js";
+export {
+  MAX_REASON_LENGTH,
+  ReversalRefused,
+  reverseEntry,
+  type ReversalRefusal,
+} from "./reversals.js";
 export { migrationsFolder, runMigrations } from "./migrate.js";
 export { appLogin, prepareDatabase } from "./prepare.js";
 export {
