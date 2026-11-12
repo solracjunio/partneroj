@@ -17,6 +17,7 @@ export {
   type PocketExpense,
   type ProjectForEntries,
 } from "./expenses.js";
+export { listFeed, type FeedPage, type FeedRow } from "./feed.js";
 // The queue's type, so the apps use pg-boss without a second copy of it.
 export type { PgBoss } from "pg-boss";
 export {
