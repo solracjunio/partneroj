@@ -1,6 +1,11 @@
 // Calls to the API, on the same origin under /api (Caddy in production,
 // the Vite proxy in development). The session cookie is HttpOnly: this
 // code never sees it, the browser sends it on its own.
+import type {
+  CurrentProject,
+  NewExpense,
+  RecordedExpense,
+} from "@partneroj/contracts";
 
 export interface InvitePreview {
   memberName: string;
@@ -17,9 +22,12 @@ export interface Me {
 /**
  * What a call can end in, besides success. "unusable" is the API's 404
  * for an invite (used, expired, replaced or unknown alike); "signed-out"
- * is its 401; "offline" is no answer at all.
+ * is its 401; "refused" is its 403 (a reader, or a member without a
+ * weight) and 422 (a project or category that is gone); "offline" is no
+ * answer at all.
  */
-export type Failure = "unusable" | "signed-out" | "offline" | "error";
+export type Failure =
+  "unusable" | "signed-out" | "refused" | "offline" | "error";
 
 export type Result<T> =
   { ok: true; value: T } | { ok: false; failure: Failure };
@@ -38,6 +46,9 @@ async function call<T>(
   if (response.ok) return { ok: true, value: await read(response) };
   if (response.status === 404) return { ok: false, failure: "unusable" };
   if (response.status === 401) return { ok: false, failure: "signed-out" };
+  if (response.status === 403 || response.status === 422) {
+    return { ok: false, failure: "refused" };
+  }
   return { ok: false, failure: "error" };
 }
 
@@ -57,4 +68,19 @@ export const api = {
     ),
 
   me: () => call("/me", {}, json<Me>),
+
+  /** The project to record into and the category buttons. */
+  currentProject: () => call("/projects/current", {}, json<CurrentProject>),
+
+  /** "Fiz um gasto": who paid is the session, not the body. */
+  recordExpense: (body: NewExpense) =>
+    call(
+      "/entries/expenses",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      json<RecordedExpense>,
+    ),
 };

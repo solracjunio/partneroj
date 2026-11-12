@@ -1,4 +1,4 @@
-// A pocket expense (plan section 5, "Lancei um gasto"): the partner paid
+// A pocket expense (plan section 5, "Fiz um gasto"): the partner paid
 // with their own money, so it counts as their contribution and the
 // expense is split among everyone by weight.
 import { and, asc, desc, eq } from "drizzle-orm";

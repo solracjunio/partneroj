@@ -50,7 +50,7 @@ export class EntriesController {
   }
 
   /**
-   * "Lancei um gasto": an expense paid from the signed-in member's own
+   * "Fiz um gasto": an expense paid from the signed-in member's own
    * pocket. Who paid is the session, not a field of the body.
    */
   @Post("entries/expenses")

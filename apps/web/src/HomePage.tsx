@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 
 import { api, type Me, type Result } from "./api";
 import { InstallCard } from "./InstallCard";
+import { navigate } from "./routes";
 
 /**
- * The first screen. For now it only says who is signed in: the balances
- * and the "Lancei um gasto" button come in the next PRs of block 5.
+ * The first screen: who is signed in and the "Fiz um gasto" button. The
+ * balances come in the next PRs of block 5.
  */
 export function HomePage() {
   const [me, setMe] = useState<Result<Me> | null>(null);
@@ -26,9 +27,19 @@ export function HomePage() {
     return (
       <section>
         <h1>Olá, {me.value.name}.</h1>
-        <p className="muted">
-          Os lançamentos e os saldos chegam nas próximas versões.
-        </p>
+        {/* Plan section 2: a reader only follows. */}
+        {me.value.role !== "reader" && (
+          <div className="actions">
+            <button
+              type="button"
+              className="primary"
+              onClick={() => navigate("/gasto")}
+            >
+              Fiz um gasto
+            </button>
+          </div>
+        )}
+        <p className="muted">Os saldos chegam nas próximas versões.</p>
         <InstallCard />
       </section>
     );
