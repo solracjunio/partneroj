@@ -57,3 +57,36 @@ export interface RecordedReversal {
   /** Negative: the original's amount with the sign inverted. */
   amountCents: string;
 }
+
+/** A member as the screens show them: who paid, who recorded, who undid. */
+export interface MemberName {
+  id: string;
+  name: string;
+}
+
+/**
+ * The "Lançamento" screen (plan section 5): one entry with its receipts
+ * and its derived status (ADR 0006).
+ */
+export interface EntryDetails {
+  id: string;
+  type: string;
+  /** Cents as a string; negative on a reversal. */
+  amountCents: string;
+  occurredOn: string;
+  category: string | null;
+  description: string | null;
+  /** The pocket it came from; null when it came from an account. */
+  paidBy: MemberName | null;
+  author: MemberName;
+  /** When it was recorded, as an ISO timestamp. */
+  recordedAt: string;
+  receipts: { id: string; contentType: string }[];
+  status: "confirmed" | "reversed";
+  /** On an entry that was undone: the reversal, who did it and why. */
+  reversal: { id: string; reason: string; at: string; by: MemberName } | null;
+  /** On a reversal: the entry it undoes. */
+  reversalOf: string | null;
+  /** Whether "Desfazer" is shown: decided by the server, not the screen. */
+  canReverse: boolean;
+}

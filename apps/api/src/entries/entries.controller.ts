@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import {
   type CurrentProject,
+  type EntryDetails,
   newExpense,
   type NewExpense,
   type RecordedExpense,
@@ -24,6 +25,7 @@ import {
 import {
   currentProject,
   type Database,
+  findEntryDetails,
   ExpenseRefused,
   type PgBoss,
   recordExpense,
@@ -56,6 +58,50 @@ export class EntriesController {
     const current = await currentProject(this.db, member.partnershipId);
     if (current === null) throw new NotFoundException("no_project");
     return current;
+  }
+
+  /**
+   * The "Lançamento" screen: one entry of the member's partnership, for
+   * everyone, readers included (plan section 2).
+   */
+  @Get("entries/:entryId")
+  @Header("Cache-Control", "no-store")
+  async details(
+    @CurrentMember() member: SessionMember,
+    @Param("entryId") entryId: string,
+  ): Promise<EntryDetails> {
+    const row = UUID.test(entryId)
+      ? await findEntryDetails(this.db, {
+          entryId,
+          partnershipId: member.partnershipId,
+          memberId: member.memberId,
+        })
+      : null;
+    if (row === null) throw new NotFoundException("entry-not-found");
+    return {
+      id: row.id,
+      type: row.type,
+      amountCents: row.amount.toString(),
+      occurredOn: row.occurredOn,
+      category: row.category,
+      description: row.description,
+      paidBy: row.paidBy,
+      author: row.author,
+      recordedAt: row.createdAt.toISOString(),
+      receipts: row.receipts,
+      status: row.reversal === null ? "confirmed" : "reversed",
+      reversal:
+        row.reversal === null
+          ? null
+          : {
+              id: row.reversal.id,
+              reason: row.reversal.reason,
+              at: row.reversal.createdAt.toISOString(),
+              by: row.reversal.by,
+            },
+      reversalOf: row.reversalOf,
+      canReverse: row.canReverse,
+    };
   }
 
   /**

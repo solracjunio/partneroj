@@ -17,6 +17,7 @@ export {
   type PocketExpense,
   type ProjectForEntries,
 } from "./expenses.js";
+export { findEntryDetails, type EntryDetailsRow } from "./entry-details.js";
 export {
   countUnread,
   listFeed,

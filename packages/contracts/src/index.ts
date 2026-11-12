@@ -4,6 +4,8 @@ export {
   newExpense,
   reverseEntryBody,
   type CurrentProject,
+  type EntryDetails,
+  type MemberName,
   type NewExpense,
   type RecordedExpense,
   type RecordedReversal,
