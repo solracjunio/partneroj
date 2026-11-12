@@ -31,6 +31,7 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 09/11/2026 | 5 | 4,25 h* | Convite por toque: convite e sessão no banco com hash do token (PR #31), API do convite com cookie `__Host-session` e `GET /me` (PR #32), comandos no `admin-cli` (PR #33), novo convite revogando os pendentes (PR #34) e página `/convite/<token>` (PR #35); app instalável com service worker próprio e cartão de instalação (PR #36), ícone com folga para o recorte do Android (PRs #37 e #38); despesa do bolso no servidor: projeto com pesos e categorias (PR #39), `POST /entries/expenses` com o pagador vindo da sessão (PR #40) e comprovantes reencodados sem EXIF, guardados em disco e no backup (PR #41); quiz no meio do bloco, sobre o convite (4/5) | Sim |
 | 10/11/2026 | 5 | 0,5 h* | Tela "Fiz um gasto", parte 1: valor em reais lido como texto até centavos, sem float, com teste de propriedade (fast-check); rascunho validado pelo mesmo contrato do servidor; data do dia local do celular; rota `/gasto` e botão na tela inicial para quem não é leitor (PR #43) | Sim |
 | 11/11/2026 | 5 | 0,5 h* | Teste local da tela "Fiz um gasto" com uma sociedade fictícia: gastos gravados em centavos, no dia local e com o pagador vindo da sessão; leitor sem o botão e recusado pela API (PR #43) | Sim |
+| 11/11/2026 | 5 | 1,25 h* | Tela "Fiz um gasto", parte 2: comprovante pela câmera ou pelo arquivo, reduzido no celular a 2000 px em JPEG, sem GPS nem EXIF; gasto salvo antes da foto, com "Enviar a foto de novo" e foto esquecida enviada pela tela "Gasto salvo."; deploy da parte 1 conferido de fora e pelo celular (PR #44) | Sim |
 
 ## Total por bloco
 
@@ -40,5 +41,5 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 1A. Domínio dos sócios | 18 h | 2,0 h |
 | 2A. Persistência dos sócios | 15 h | 3,5 h |
 | Infra de produção | 12 h | 4,25 h |
-| Versão para os sócios | 30 h | 5,25 h (em andamento) |
+| Versão para os sócios | 30 h | 6,5 h (em andamento) |
 | Importação da planilha | 3 h | |

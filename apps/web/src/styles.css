@@ -159,7 +159,13 @@ a:focus-visible {
   gap: 12px;
 }
 
-button.choice {
+button.choice,
+label.choice {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
   min-height: 56px;
   padding: 8px 12px;
   border: 2px solid var(--primary);
@@ -184,6 +190,34 @@ button.choice[aria-pressed="true"] {
 
 .actions .problem {
   margin: 0;
+}
+
+/* A file input can't be styled: its label is the button instead. Hidden
+   this way, not with display: none, so it can still take the focus. */
+.hidden-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+label.choice:has(+ .hidden-file:focus-visible) {
+  outline: 3px solid var(--text);
+  outline-offset: 3px;
+}
+
+/* The chosen receipt: the photo as large as the screen allows. */
+.receipt {
+  display: grid;
+  gap: 12px;
+}
+
+.receipt img {
+  display: block;
+  max-width: 100%;
+  max-height: 50vh;
+  border-radius: 12px;
+  object-fit: contain;
 }
 
 .field input:focus-visible,
