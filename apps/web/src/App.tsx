@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { ExpenseForm } from "./ExpenseForm";
+import { FeedPage } from "./FeedPage";
 import { HomePage } from "./HomePage";
 import { InvitePage } from "./InvitePage";
 import { matchRoute } from "./routes";
@@ -20,6 +21,7 @@ export function App() {
     <main>
       {route.page === "home" && <HomePage />}
       {route.page === "expense" && <ExpenseForm />}
+      {route.page === "feed" && <FeedPage />}
       {route.page === "invite" && <InvitePage token={route.token} />}
       {route.page === "not-found" && (
         <section>
