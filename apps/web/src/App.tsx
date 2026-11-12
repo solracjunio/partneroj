@@ -1,12 +1,25 @@
+import { useEffect, useState } from "react";
+
+import { ExpenseForm } from "./ExpenseForm";
 import { HomePage } from "./HomePage";
 import { InvitePage } from "./InvitePage";
 import { matchRoute } from "./routes";
 
 export function App() {
-  const route = matchRoute(window.location.pathname);
+  const [pathname, setPathname] = useState(window.location.pathname);
+
+  // The phone's "back", and navigate() from routes.ts.
+  useEffect(() => {
+    const follow = () => setPathname(window.location.pathname);
+    window.addEventListener("popstate", follow);
+    return () => window.removeEventListener("popstate", follow);
+  }, []);
+
+  const route = matchRoute(pathname);
   return (
     <main>
       {route.page === "home" && <HomePage />}
+      {route.page === "expense" && <ExpenseForm />}
       {route.page === "invite" && <InvitePage token={route.token} />}
       {route.page === "not-found" && (
         <section>

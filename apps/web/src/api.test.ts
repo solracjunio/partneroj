@@ -43,10 +43,42 @@ describe("api", () => {
   it.each([
     [404, "unusable"],
     [401, "signed-out"],
+    [403, "refused"],
+    [422, "refused"],
     [500, "error"],
   ])("turns a %i into %s", async (status, failure) => {
     answer(status);
     expect(await api.me()).toEqual({ ok: false, failure });
+  });
+
+  it("reads the current project and its categories", async () => {
+    const current = {
+      project: { id: "p", name: "Obra" },
+      categories: [{ id: "c", name: "Material" }],
+    };
+    const fetch = answer(200, current);
+    expect(await api.currentProject()).toEqual({ ok: true, value: current });
+    expect(fetch).toHaveBeenCalledWith("/api/projects/current", {});
+  });
+
+  it("records an expense with a JSON POST", async () => {
+    const recorded = { id: "e", amountCents: "1250", occurredOn: "2026-11-09" };
+    const fetch = answer(201, recorded);
+    const body = {
+      projectId: "p",
+      amountCents: "1250",
+      categoryId: "c",
+      occurredOn: "2026-11-09",
+    };
+    expect(await api.recordExpense(body)).toEqual({
+      ok: true,
+      value: recorded,
+    });
+    expect(fetch).toHaveBeenCalledWith("/api/entries/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
   });
 
   it("tells when there is no connection", async () => {

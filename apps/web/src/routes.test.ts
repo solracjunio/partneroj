@@ -14,6 +14,11 @@ describe("matchRoute", () => {
     expect(matchRoute(`/convite/${token}/`)).toEqual({ page: "invite", token });
   });
 
+  it("opens the expense form", () => {
+    expect(matchRoute("/gasto")).toEqual({ page: "expense" });
+    expect(matchRoute("/gasto/")).toEqual({ page: "expense" });
+  });
+
   it("finds nothing elsewhere", () => {
     expect(matchRoute("/convite/")).toEqual({ page: "not-found" });
     expect(matchRoute("/convite/a/b")).toEqual({ page: "not-found" });
