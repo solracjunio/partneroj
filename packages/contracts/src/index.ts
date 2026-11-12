@@ -2,9 +2,12 @@
 export {
   amountCents,
   newExpense,
+  reverseEntryBody,
   type CurrentProject,
   type NewExpense,
   type RecordedExpense,
+  type RecordedReversal,
+  type ReverseEntryBody,
 } from "./expense.js";
 export {
   FEED_PAGE_SIZE,

@@ -231,3 +231,88 @@ describe("POST /entries/expenses", () => {
     await http().post("/entries/expenses").send(body(s)).expect(401);
   });
 });
+
+describe("POST /entries/:entryId/reverse", () => {
+  /** João records the expense; returns its id and his cookie. */
+  async function recorded() {
+    const s = await seed();
+    const joao = await signIn(s.joao);
+    const response = await http()
+      .post("/entries/expenses")
+      .set("Cookie", joao)
+      .send(body(s))
+      .expect(201);
+    return { s, joao, entryId: (response.body as { id: string }).id };
+  }
+
+  it("undoes the author's own entry with a reversal", async () => {
+    const { joao, entryId } = await recorded();
+    const response = await http()
+      .post(`/entries/${entryId}/reverse`)
+      .set("Cookie", joao)
+      .send({ reason: " lancei duas vezes " })
+      .expect(201);
+    expect(response.body).toMatchObject({
+      reversalOf: entryId,
+      amountCents: "-15000",
+    });
+    const [row] = await t.db
+      .select()
+      .from(entries)
+      .where(eq(entries.reversalOf, entryId));
+    expect(row!.reversalReason).toBe("lancei duas vezes");
+  });
+
+  it("answers 409 the second time", async () => {
+    const { joao, entryId } = await recorded();
+    const undo = () =>
+      http()
+        .post(`/entries/${entryId}/reverse`)
+        .set("Cookie", joao)
+        .send({ reason: "errado" });
+    await undo().expect(201);
+    await undo().expect(409);
+  });
+
+  it("answers 403 to someone who is not the author", async () => {
+    const { s, entryId } = await recorded();
+    const leo = await signIn(s.leo);
+    await http()
+      .post(`/entries/${entryId}/reverse`)
+      .set("Cookie", leo)
+      .send({ reason: "errado" })
+      .expect(403);
+  });
+
+  it("answers 404 for another partnership's entry and for a non-id", async () => {
+    const { entryId } = await recorded();
+    const other = await seed("Outra Obra");
+    const outsider = await signIn(other.joao);
+    for (const id of [entryId, "abc"]) {
+      await http()
+        .post(`/entries/${id}/reverse`)
+        .set("Cookie", outsider)
+        .send({ reason: "errado" })
+        .expect(404);
+    }
+  });
+
+  it("answers 400 without a reason", async () => {
+    const { joao, entryId } = await recorded();
+    for (const reason of [undefined, "   "]) {
+      await http()
+        .post(`/entries/${entryId}/reverse`)
+        .set("Cookie", joao)
+        .send({ reason })
+        .expect(400);
+    }
+  });
+
+  it("answers 401 without a session", async () => {
+    const { entryId } = await recorded();
+    await http()
+      .post(`/entries/${entryId}/reverse`)
+      .send({ reason: "errado" })
+      .expect(401);
+  });
+});

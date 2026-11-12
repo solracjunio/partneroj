@@ -1,11 +1,13 @@
 import {
   Body,
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
   Header,
   Inject,
   NotFoundException,
+  Param,
   Post,
   UnprocessableEntityException,
   UseGuards,
@@ -15,6 +17,9 @@ import {
   newExpense,
   type NewExpense,
   type RecordedExpense,
+  type RecordedReversal,
+  reverseEntryBody,
+  type ReverseEntryBody,
 } from "@partneroj/contracts";
 import {
   currentProject,
@@ -22,6 +27,8 @@ import {
   ExpenseRefused,
   type PgBoss,
   recordExpense,
+  ReversalRefused,
+  reverseEntry,
   type SessionMember,
 } from "@partneroj/db";
 
@@ -29,6 +36,8 @@ import { CurrentMember, SessionGuard } from "../auth/session.guard.js";
 import { DATABASE } from "../database/database.module.js";
 import { JOB_QUEUE } from "../jobs/jobs.module.js";
 import { ZodBody } from "../validation/zod-body.pipe.js";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Controller()
 @UseGuards(SessionGuard)
@@ -86,6 +95,48 @@ export class EntriesController {
         throw new ForbiddenException(error.reason);
       }
       throw new UnprocessableEntityException(error.reason);
+    }
+  }
+
+  /**
+   * "Desfazer" (ADR 0006): only the author undoes their own entry, with a
+   * reason. The entry stays; a reversal with the sign inverted cancels it.
+   */
+  @Post("entries/:entryId/reverse")
+  async reverse(
+    @CurrentMember() member: SessionMember,
+    @Param("entryId") entryId: string,
+    @Body(new ZodBody(reverseEntryBody)) body: ReverseEntryBody,
+  ): Promise<RecordedReversal> {
+    if (!UUID.test(entryId)) throw new NotFoundException("entry-not-found");
+    try {
+      const row = await reverseEntry(
+        this.db,
+        this.boss,
+        { memberId: member.memberId, partnershipId: member.partnershipId },
+        { entryId, reason: body.reason },
+      );
+      return {
+        id: row.id,
+        reversalOf: row.reversalOf!,
+        amountCents: row.amount.toString(),
+      };
+    } catch (error) {
+      if (!(error instanceof ReversalRefused)) throw error;
+      switch (error.reason) {
+        // Another partnership's entry looks the same as a missing one.
+        case "entry-not-found":
+          throw new NotFoundException(error.reason);
+        case "not-author":
+          throw new ForbiddenException(error.reason);
+        // The entry's state forbids it: already undone, or itself an undo.
+        case "already-reversed":
+        case "reversal-of-reversal":
+          throw new ConflictException(error.reason);
+        case "reason-required":
+        case "account-overdrawn":
+          throw new UnprocessableEntityException(error.reason);
+      }
     }
   }
 }
