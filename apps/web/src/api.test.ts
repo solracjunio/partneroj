@@ -83,6 +83,20 @@ describe("api", () => {
     });
   });
 
+  it("reads the feed, and the next page from a cursor", async () => {
+    const fetch = answer(200, { items: [], next: null });
+    expect(await api.feed()).toEqual({
+      ok: true,
+      value: { items: [], next: null },
+    });
+    expect(fetch).toHaveBeenCalledWith("/api/activities", {});
+    await api.feed("0196-abc");
+    expect(fetch).toHaveBeenLastCalledWith(
+      "/api/activities?before=0196-abc",
+      {},
+    );
+  });
+
   it("tells when there is no connection", async () => {
     vi.stubGlobal("fetch", () => Promise.reject(new TypeError("offline")));
     expect(await api.me()).toEqual({ ok: false, failure: "offline" });

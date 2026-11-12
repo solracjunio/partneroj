@@ -4,6 +4,7 @@
 export type Route =
   | { page: "home" }
   | { page: "expense" }
+  | { page: "feed" }
   | { page: "invite"; token: string }
   | { page: "not-found" };
 
@@ -14,6 +15,9 @@ export function matchRoute(pathname: string): Route {
   if (pathname === "/" || pathname === "") return { page: "home" };
   if (pathname === "/gasto" || pathname === "/gasto/") {
     return { page: "expense" };
+  }
+  if (pathname === "/atividades" || pathname === "/atividades/") {
+    return { page: "feed" };
   }
   const invite = invitePath.exec(pathname);
   if (invite) return { page: "invite", token: invite[1]! };

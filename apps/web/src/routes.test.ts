@@ -19,6 +19,11 @@ describe("matchRoute", () => {
     expect(matchRoute("/gasto/")).toEqual({ page: "expense" });
   });
 
+  it("opens the feed", () => {
+    expect(matchRoute("/atividades")).toEqual({ page: "feed" });
+    expect(matchRoute("/atividades/")).toEqual({ page: "feed" });
+  });
+
   it("finds nothing elsewhere", () => {
     expect(matchRoute("/convite/")).toEqual({ page: "not-found" });
     expect(matchRoute("/convite/a/b")).toEqual({ page: "not-found" });

@@ -3,6 +3,7 @@
 // code never sees it, the browser sends it on its own.
 import type {
   CurrentProject,
+  Feed,
   NewExpense,
   RecordedExpense,
 } from "@partneroj/contracts";
@@ -92,6 +93,16 @@ export const api = {
         body: JSON.stringify(body),
       },
       json<RecordedExpense>,
+    ),
+
+  /** "Atividades": the first page, or the one after `before`. */
+  feed: (before?: string) =>
+    call(
+      before === undefined
+        ? "/activities"
+        : `/activities?before=${encodeURIComponent(before)}`,
+      {},
+      json<Feed>,
     ),
 
   /** The receipt of an entry: the body is the file itself. */

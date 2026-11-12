@@ -5,8 +5,8 @@ import { InstallCard } from "./InstallCard";
 import { navigate } from "./routes";
 
 /**
- * The first screen: who is signed in and the "Fiz um gasto" button. The
- * balances come in the next PRs of block 5.
+ * The first screen: who is signed in, the "Fiz um gasto" button and the
+ * way to the feed. The balances come in the next PRs of block 5.
  */
 export function HomePage() {
   const [me, setMe] = useState<Result<Me> | null>(null);
@@ -27,9 +27,9 @@ export function HomePage() {
     return (
       <section>
         <h1>Olá, {me.value.name}.</h1>
-        {/* Plan section 2: a reader only follows. */}
-        {me.value.role !== "reader" && (
-          <div className="actions">
+        <div className="actions">
+          {/* Plan section 2: a reader only follows. */}
+          {me.value.role !== "reader" && (
             <button
               type="button"
               className="primary"
@@ -37,8 +37,15 @@ export function HomePage() {
             >
               Fiz um gasto
             </button>
-          </div>
-        )}
+          )}
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => navigate("/atividades")}
+          >
+            Atividades
+          </button>
+        </div>
         <p className="muted">Os saldos chegam nas próximas versões.</p>
         <InstallCard />
       </section>

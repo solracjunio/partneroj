@@ -225,3 +225,64 @@ button.choice:focus-visible {
   outline: 3px solid var(--text);
   outline-offset: 3px;
 }
+
+/* The feed: one card per activity, the unread ones marked on the left. */
+.feed {
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.feed li {
+  padding: 12px 16px;
+  border: 2px solid var(--muted);
+  border-radius: 12px;
+}
+
+.feed li.unread {
+  border-color: var(--primary);
+  border-left-width: 8px;
+}
+
+.feed p {
+  margin: 0 0 4px;
+}
+
+.feed-headline {
+  font-weight: 600;
+}
+
+.feed-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.badge {
+  padding: 0 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.badge-Novo {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+.badge-Desfeito {
+  border: 2px solid var(--problem);
+  color: var(--problem);
+}
+
+.feed a {
+  display: inline-block;
+  min-height: 48px;
+  line-height: 48px;
+  font-weight: 600;
+  color: var(--primary);
+}
