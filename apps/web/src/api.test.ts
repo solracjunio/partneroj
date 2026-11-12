@@ -45,6 +45,8 @@ describe("api", () => {
     [401, "signed-out"],
     [403, "refused"],
     [422, "refused"],
+    [413, "unsupported"],
+    [415, "unsupported"],
     [500, "error"],
   ])("turns a %i into %s", async (status, failure) => {
     answer(status);
@@ -84,5 +86,20 @@ describe("api", () => {
   it("tells when there is no connection", async () => {
     vi.stubGlobal("fetch", () => Promise.reject(new TypeError("offline")));
     expect(await api.me()).toEqual({ ok: false, failure: "offline" });
+  });
+
+  it("sends a receipt as the whole body, with its type", async () => {
+    const added = { id: "r", contentType: "image/jpeg", sizeBytes: 3 };
+    const fetch = answer(201, added);
+    const file = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+    expect(await api.addReceipt("e1", file)).toEqual({
+      ok: true,
+      value: added,
+    });
+    expect(fetch).toHaveBeenCalledWith("/api/entries/e1/receipts", {
+      method: "POST",
+      headers: { "Content-Type": "image/jpeg" },
+      body: file,
+    });
   });
 });

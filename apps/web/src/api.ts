@@ -12,6 +12,12 @@ export interface InvitePreview {
   partnershipName: string;
 }
 
+export interface AddedReceipt {
+  id: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
 export interface Me {
   memberId: string;
   partnershipId: string;
@@ -23,11 +29,12 @@ export interface Me {
  * What a call can end in, besides success. "unusable" is the API's 404
  * for an invite (used, expired, replaced or unknown alike); "signed-out"
  * is its 401; "refused" is its 403 (a reader, or a member without a
- * weight) and 422 (a project or category that is gone); "offline" is no
- * answer at all.
+ * weight) and 422 (a project or category that is gone); "unsupported"
+ * is its 413 and 415 (a file too big, or one it can't read, like HEIC);
+ * "offline" is no answer at all.
  */
 export type Failure =
-  "unusable" | "signed-out" | "refused" | "offline" | "error";
+  "unusable" | "signed-out" | "refused" | "unsupported" | "offline" | "error";
 
 export type Result<T> =
   { ok: true; value: T } | { ok: false; failure: Failure };
@@ -48,6 +55,9 @@ async function call<T>(
   if (response.status === 401) return { ok: false, failure: "signed-out" };
   if (response.status === 403 || response.status === 422) {
     return { ok: false, failure: "refused" };
+  }
+  if (response.status === 413 || response.status === 415) {
+    return { ok: false, failure: "unsupported" };
   }
   return { ok: false, failure: "error" };
 }
@@ -82,5 +92,17 @@ export const api = {
         body: JSON.stringify(body),
       },
       json<RecordedExpense>,
+    ),
+
+  /** The receipt of an entry: the body is the file itself. */
+  addReceipt: (entryId: string, file: Blob) =>
+    call(
+      `/entries/${encodeURIComponent(entryId)}/receipts`,
+      {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      },
+      json<AddedReceipt>,
     ),
 };

@@ -1,5 +1,5 @@
 import type { CurrentProject, RecordedExpense } from "@partneroj/contracts";
-import { type FormEvent, useEffect, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
 
 import { api, type Failure, type Result } from "./api";
 import {
@@ -10,6 +10,11 @@ import {
   readDraft,
 } from "./expenseForm";
 import { formatCents } from "./money";
+import {
+  prepareReceipt,
+  type ReadyReceipt,
+  type ReceiptProblem,
+} from "./receiptPhoto";
 import { navigate } from "./routes";
 
 const problemText: Record<DraftProblem, string> = {
@@ -23,9 +28,31 @@ const sendProblemText: Record<Failure, string> = {
   offline: "Sem conexão. Confira a internet e toque em Salvar de novo.",
   "signed-out": "Você saiu do Partneroj. Abra o app de novo para entrar.",
   refused: "Seu acesso não permite registrar gastos neste projeto.",
+  unsupported: "O servidor não aceitou o gasto. Toque em Salvar de novo.",
   unusable: "Este projeto não aceita mais gastos. Volte ao início.",
   error: "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo.",
 };
+
+const receiptProblemText: Record<ReceiptProblem, string> = {
+  kind: "Escolha uma foto ou um PDF.",
+  unreadable: "Não deu para abrir esta foto. Tire outra pela câmera.",
+  "too-big": "O PDF passa de 10 MB. Escolha um arquivo menor.",
+};
+
+/** The photo goes after the expense; each of these keeps the expense saved. */
+const uploadProblemText: Record<Failure, string> = {
+  offline: "Sem conexão, e a foto não foi enviada.",
+  error: "Algo deu errado, e a foto não foi enviada.",
+  unsupported: "O servidor não aceitou este arquivo.",
+  "signed-out": "Você saiu do Partneroj, e a foto não foi enviada.",
+  refused: "Seu acesso não permite enviar a foto.",
+  unusable: "Este gasto não aceita mais fotos.",
+};
+
+/** Worth another tap: the connection or the server, not the file. */
+const retryable = new Set<Failure>(["offline", "error"]);
+
+type Upload = "none" | "sending" | "sent" | Failure;
 
 function emptyDraft(occurredOn: string): ExpenseDraft {
   return { amount: "", categoryId: null, occurredOn, description: "" };
@@ -33,7 +60,9 @@ function emptyDraft(occurredOn: string): ExpenseDraft {
 
 /**
  * "Fiz um gasto" (plan section 5): an expense paid from the partner's own
- * pocket. The photo of the receipt comes in the next part.
+ * pocket, with the photo of the receipt if there is one. The expense is
+ * saved first and the photo after it: a photo that fails to go up never
+ * loses the expense, and can be sent again.
  */
 export function ExpenseForm() {
   const [current, setCurrent] = useState<Result<CurrentProject> | null>(null);
@@ -60,15 +89,56 @@ function Form({ current }: { current: CurrentProject }) {
   const [saving, setSaving] = useState(false);
   const [sendProblem, setSendProblem] = useState<Failure | null>(null);
   const [saved, setSaved] = useState<RecordedExpense | null>(null);
+  const [receipt, setReceipt] = useState<ReadyReceipt | null>(null);
+  const [receiptProblem, setReceiptProblem] = useState<ReceiptProblem | null>(
+    null,
+  );
+  const [preparing, setPreparing] = useState(false);
+  const [upload, setUpload] = useState<Upload>("none");
 
   const change = (fields: Partial<ExpenseDraft>) =>
     setDraft((before) => ({ ...before, ...fields }));
   const has = (problem: DraftProblem) => problems.includes(problem);
 
+  async function choose(
+    event: ChangeEvent<HTMLInputElement>,
+  ): Promise<ReadyReceipt | null> {
+    const file = event.target.files?.[0];
+    // Cleared, so choosing the same file again still counts as a change.
+    event.target.value = "";
+    if (file === undefined) return null;
+    setPreparing(true);
+    const prepared = await prepareReceipt(file);
+    setPreparing(false);
+    if (prepared.ok) {
+      setReceipt(prepared.receipt);
+      setReceiptProblem(null);
+      return prepared.receipt;
+    }
+    setReceipt(null);
+    setReceiptProblem(prepared.problem);
+    return null;
+  }
+
+  /** On "Gasto salvo.": the photo forgotten before saving, sent right away. */
+  async function chooseAfterSaving(
+    entryId: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const ready = await choose(event);
+    if (ready !== null) await sendReceipt(entryId, ready.blob);
+  }
+
+  async function sendReceipt(entryId: string, file: Blob) {
+    setUpload("sending");
+    const result = await api.addReceipt(entryId, file);
+    setUpload(result.ok ? "sent" : result.failure);
+  }
+
   async function save(event: FormEvent) {
     event.preventDefault();
     // A second tap while the first is on its way would record it twice.
-    if (saving) return;
+    if (saving || preparing) return;
     const read = readDraft(current.project.id, draft);
     if (!read.ok) {
       setProblems(read.problems);
@@ -79,8 +149,12 @@ function Form({ current }: { current: CurrentProject }) {
     setSaving(true);
     const result = await api.recordExpense(read.body);
     setSaving(false);
-    if (result.ok) setSaved(result.value);
-    else setSendProblem(result.failure);
+    if (!result.ok) {
+      setSendProblem(result.failure);
+      return;
+    }
+    setSaved(result.value);
+    if (receipt !== null) void sendReceipt(result.value.id, receipt.blob);
   }
 
   if (saved !== null) {
@@ -93,14 +167,50 @@ function Form({ current }: { current: CurrentProject }) {
           {category && <> em {category.name}</>}, no dia{" "}
           {formatDate(saved.occurredOn)}.
         </p>
+        <UploadStatus
+          upload={upload}
+          onRetry={
+            receipt === null
+              ? undefined
+              : () => void sendReceipt(saved.id, receipt.blob)
+          }
+        />
+        {/* No photo yet, or one the server refused: another can still go. */}
+        {(upload === "none" || upload === "unsupported") && (
+          <fieldset className="field">
+            <legend>
+              {upload === "none"
+                ? "Esqueceu o comprovante?"
+                : "Quer mandar outro arquivo?"}
+            </legend>
+            {preparing ? (
+              <p className="muted">Preparando a foto…</p>
+            ) : (
+              <ReceiptChooser
+                onChoose={(event) => void chooseAfterSaving(saved.id, event)}
+              />
+            )}
+            {receiptProblem !== null && (
+              <p role="alert" className="problem">
+                {receiptProblemText[receiptProblem]}
+              </p>
+            )}
+          </fieldset>
+        )}
         <div className="actions">
           <button
             type="button"
             className="primary"
+            // The answer of a photo still going up would land on the next
+            // expense.
+            disabled={upload === "sending" || preparing}
             onClick={() => {
               // The same day is the likeliest for the next receipt too.
               setDraft(emptyDraft(draft.occurredOn));
               setSaved(null);
+              setReceipt(null);
+              setReceiptProblem(null);
+              setUpload("none");
             }}
           >
             Fiz outro gasto
@@ -194,8 +304,23 @@ function Form({ current }: { current: CurrentProject }) {
           )}
         </div>
 
+        <ReceiptField
+          receipt={receipt}
+          problem={receiptProblem}
+          preparing={preparing}
+          onChoose={(event) => void choose(event)}
+          onRemove={() => {
+            setReceipt(null);
+            setReceiptProblem(null);
+          }}
+        />
+
         <div className="actions">
-          <button type="submit" className="primary" disabled={saving}>
+          <button
+            type="submit"
+            className="primary"
+            disabled={saving || preparing}
+          >
             {saving ? "Salvando…" : "Salvar"}
           </button>
           {sendProblem !== null && (
@@ -213,6 +338,127 @@ function Form({ current }: { current: CurrentProject }) {
         </div>
       </form>
     </section>
+  );
+}
+
+function ReceiptField({
+  receipt,
+  problem,
+  preparing,
+  onChoose,
+  onRemove,
+}: {
+  receipt: ReadyReceipt | null;
+  problem: ReceiptProblem | null;
+  preparing: boolean;
+  onChoose: (event: ChangeEvent<HTMLInputElement>) => void;
+  onRemove: () => void;
+}) {
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (receipt?.kind !== "photo") {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(receipt.blob);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [receipt]);
+
+  return (
+    <fieldset className="field">
+      <legend>
+        Comprovante <span className="muted">(se quiser)</span>
+      </legend>
+      {preparing && <p className="muted">Preparando a foto…</p>}
+      {receipt !== null && !preparing && (
+        <div className="receipt">
+          {preview !== null ? (
+            <img src={preview} alt="A foto do comprovante" />
+          ) : (
+            <p>
+              PDF: <strong>{receipt.name}</strong>
+            </p>
+          )}
+          <button type="button" className="secondary" onClick={onRemove}>
+            Tirar o comprovante
+          </button>
+        </div>
+      )}
+      {receipt === null && !preparing && <ReceiptChooser onChoose={onChoose} />}
+      {problem !== null && (
+        <p role="alert" className="problem">
+          {receiptProblemText[problem]}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
+/** Two buttons: the camera, or a photo or PDF already on the phone. */
+function ReceiptChooser({
+  onChoose,
+}: {
+  onChoose: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="choices">
+      {/* The label is the button; the input itself stays hidden. */}
+      <label className="choice" htmlFor="receipt-camera">
+        Tirar foto
+      </label>
+      <input
+        id="receipt-camera"
+        className="hidden-file"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={onChoose}
+      />
+      <label className="choice" htmlFor="receipt-file">
+        Escolher arquivo
+      </label>
+      <input
+        id="receipt-file"
+        className="hidden-file"
+        type="file"
+        accept="image/*,application/pdf"
+        onChange={onChoose}
+      />
+    </div>
+  );
+}
+
+function UploadStatus({
+  upload,
+  onRetry,
+}: {
+  upload: Upload;
+  onRetry: (() => void) | undefined;
+}) {
+  if (upload === "none") return null;
+  if (upload === "sending") {
+    return (
+      <p role="status" className="muted">
+        Enviando a foto…
+      </p>
+    );
+  }
+  if (upload === "sent") {
+    return <p role="status">Foto do comprovante enviada.</p>;
+  }
+  return (
+    <div className="actions">
+      <p role="alert" className="problem">
+        {uploadProblemText[upload]} O gasto já está salvo.
+      </p>
+      {retryable.has(upload) && onRetry !== undefined && (
+        <button type="button" className="primary" onClick={onRetry}>
+          Enviar a foto de novo
+        </button>
+      )}
+    </div>
   );
 }
 
