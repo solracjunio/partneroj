@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { EntryPage } from "./EntryPage";
 import { ExpenseForm } from "./ExpenseForm";
 import { FeedPage } from "./FeedPage";
 import { HomePage } from "./HomePage";
@@ -22,6 +23,7 @@ export function App() {
       {route.page === "home" && <HomePage />}
       {route.page === "expense" && <ExpenseForm />}
       {route.page === "feed" && <FeedPage />}
+      {route.page === "entry" && <EntryPage key={route.id} id={route.id} />}
       {route.page === "invite" && <InvitePage token={route.token} />}
       {route.page === "not-found" && (
         <section>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { api, type Failure, type Me } from "./api";
 import { describeItem, formatWhen, receiptLabel, unreadIds } from "./feed";
+import { entryLink } from "./routes";
 
 const loadProblemText: Record<Failure, string> = {
   offline: "Sem conexão. Confira a internet e toque em Tentar de novo.",
@@ -11,6 +12,7 @@ const loadProblemText: Record<Failure, string> = {
   refused: "Algo deu errado. Toque em Tentar de novo.",
   unsupported: "Algo deu errado. Toque em Tentar de novo.",
   unusable: "Algo deu errado. Toque em Tentar de novo.",
+  conflict: "Algo deu errado. Toque em Tentar de novo.",
 };
 
 /**
@@ -96,6 +98,11 @@ export function FeedPage() {
                     </a>
                   </p>
                 ))}
+                {item.entry !== null && (
+                  <p className="feed-detail">
+                    <a href={entryLink(item.entry.id)}>Ver detalhes ▸</a>
+                  </p>
+                )}
               </li>
             );
           })}
