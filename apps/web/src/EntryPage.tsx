@@ -1,6 +1,7 @@
 import type { EntryDetails } from "@partneroj/contracts";
 import { useEffect, useState } from "react";
 
+import { AddReceipt } from "./AddReceipt";
 import { api, type Failure, type Me } from "./api";
 import {
   checkReason,
@@ -142,6 +143,14 @@ export function EntryPage({ id }: { id: string }) {
             </a>
           </p>
         ))
+      )}
+
+      {entry.canAddReceipt && (
+        <AddReceipt
+          entryId={entry.id}
+          hasReceipts={entry.receipts.length > 0}
+          onAdded={load}
+        />
       )}
 
       {entry.reversalOf !== null && (

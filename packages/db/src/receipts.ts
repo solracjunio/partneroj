@@ -12,9 +12,9 @@ import { auditLog, entries, projects, receipts } from "./schema.js";
 export async function findEntryForReceipt(
   db: Database,
   input: { entryId: string; partnershipId: string },
-): Promise<{ id: string } | null> {
+): Promise<{ id: string; authorId: string } | null> {
   const [row] = await db
-    .select({ id: entries.id })
+    .select({ id: entries.id, authorId: entries.authorId })
     .from(entries)
     .innerJoin(projects, eq(projects.id, entries.projectId))
     .where(

@@ -251,6 +251,33 @@ describe("POST /entries/:entryId/receipts", () => {
       .send(await photo())
       .expect(403);
   });
+
+  it("refuses another partner, even an admin, storing nothing", async () => {
+    const s = await seed();
+    await http()
+      .post(`/entries/${s.entryId}/receipts`)
+      .set("Cookie", await signIn(s.maria))
+      .set("Content-Type", "image/jpeg")
+      .send(await photo())
+      .expect(403);
+    await expect(readdir(join(root, "receipts", s.entryId))).rejects.toThrow();
+  });
+
+  it("takes the author's receipt for an entry already undone", async () => {
+    const s = await seed();
+    const joao = await signIn(s.joao);
+    await http()
+      .post(`/entries/${s.entryId}/reverse`)
+      .set("Cookie", joao)
+      .send({ reason: "valor errado" })
+      .expect(201);
+    await http()
+      .post(`/entries/${s.entryId}/receipts`)
+      .set("Cookie", joao)
+      .set("Content-Type", "image/jpeg")
+      .send(await photo())
+      .expect(201);
+  });
 });
 
 describe("GET /receipts/:receiptId", () => {

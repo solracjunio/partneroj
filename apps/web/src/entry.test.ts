@@ -23,6 +23,7 @@ function entry(overrides: Partial<EntryDetails> = {}): EntryDetails {
     reversal: null,
     reversalOf: null,
     canReverse: false,
+    canAddReceipt: false,
     ...overrides,
   };
 }

@@ -37,6 +37,7 @@ import {
 import { CurrentMember, SessionGuard } from "../auth/session.guard.js";
 import { DATABASE } from "../database/database.module.js";
 import { JOB_QUEUE } from "../jobs/jobs.module.js";
+import { mayAddReceipt } from "../receipts/rules.js";
 import { ZodBody } from "../validation/zod-body.pipe.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -101,6 +102,7 @@ export class EntriesController {
             },
       reversalOf: row.reversalOf,
       canReverse: row.canReverse,
+      canAddReceipt: mayAddReceipt(member, { authorId: row.author.id }),
     };
   }
 

@@ -88,7 +88,13 @@ async function seed(name = "Obra Teste", withProject = true) {
   });
   const [joao, maria, leo] = p.members.map((m) => m.id);
   if (!withProject) {
-    return { joao: joao!, leo: leo!, projectId: "", materialId: "" };
+    return {
+      joao: joao!,
+      maria: maria!,
+      leo: leo!,
+      projectId: "",
+      materialId: "",
+    };
   }
   const project = await createProject(conn.db, {
     partnershipId: p.id,
@@ -113,6 +119,7 @@ async function seed(name = "Obra Teste", withProject = true) {
     .orderBy(categories.name);
   return {
     joao: joao!,
+    maria: maria!,
     leo: leo!,
     projectId: project.id,
     materialId: material!.id,
@@ -329,7 +336,7 @@ describe("GET /entries/:entryId", () => {
     return { s, joao, entryId: (response.body as { id: string }).id };
   }
 
-  it("shows the entry to a reader, without the undo", async () => {
+  it("shows the entry to a reader, without the undo or adding a receipt", async () => {
     const { s, entryId } = await recorded();
     const leo = await signIn(s.leo);
     const response = await http()
@@ -347,13 +354,30 @@ describe("GET /entries/:entryId", () => {
       status: "confirmed",
       reversal: null,
       canReverse: false,
+      canAddReceipt: false,
+    });
+  });
+
+  it("offers neither the undo nor a receipt to another partner", async () => {
+    const { s, entryId } = await recorded();
+    const other = await signIn(s.maria);
+    const response = await http()
+      .get(`/entries/${entryId}`)
+      .set("Cookie", other)
+      .expect(200);
+    expect(response.body).toMatchObject({
+      canReverse: false,
+      canAddReceipt: false,
     });
   });
 
   it("offers the undo to the author, and shows it after", async () => {
     const { joao, entryId } = await recorded();
     const before = await http().get(`/entries/${entryId}`).set("Cookie", joao);
-    expect((before.body as { canReverse: boolean }).canReverse).toBe(true);
+    expect(before.body).toMatchObject({
+      canReverse: true,
+      canAddReceipt: true,
+    });
     await http()
       .post(`/entries/${entryId}/reverse`)
       .set("Cookie", joao)
@@ -364,6 +388,8 @@ describe("GET /entries/:entryId", () => {
       status: "reversed",
       reversal: { reason: "errado", by: { name: "João" } },
       canReverse: false,
+      // A receipt that arrives late still belongs to an undone entry.
+      canAddReceipt: true,
     });
   });
 

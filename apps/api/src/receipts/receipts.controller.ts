@@ -27,6 +27,7 @@ import {
 import { CurrentMember, SessionGuard } from "../auth/session.guard.js";
 import { DATABASE } from "../database/database.module.js";
 import { normalizeReceipt, ReceiptRejected } from "./normalize.js";
+import { mayAddReceipt } from "./rules.js";
 import { RECEIPT_STORAGE, type ReceiptStorage } from "./storage.js";
 
 /** Same limit as Caddy's request_body and the receipts table's check. */
@@ -62,8 +63,8 @@ export class ReceiptsController {
   ) {}
 
   /**
-   * Attaches a photo or PDF to an entry (plan section 2: partners and
-   * admins). The body is the file itself.
+   * Attaches a photo or PDF to an entry, by who recorded it
+   * (receipts/rules.ts). The body is the file itself.
    */
   @Post("entries/:entryId/receipts")
   async upload(
@@ -71,13 +72,15 @@ export class ReceiptsController {
     @Param("entryId") entryId: string,
     @Req() request: IncomingMessage,
   ): Promise<{ id: string; contentType: string; sizeBytes: number }> {
-    if (member.role === "reader") throw new ForbiddenException();
     const scope = { entryId, partnershipId: member.partnershipId };
     // Before reading the body: nothing is processed or stored for an
-    // entry that is not the member's partnership's.
-    if (!UUID.test(entryId) || !(await findEntryForReceipt(this.db, scope))) {
-      throw new NotFoundException();
-    }
+    // entry that is not the member's partnership's, nor by someone who
+    // didn't record it.
+    const entry = UUID.test(entryId)
+      ? await findEntryForReceipt(this.db, scope)
+      : null;
+    if (entry === null) throw new NotFoundException();
+    if (!mayAddReceipt(member, entry)) throw new ForbiddenException();
 
     let file;
     try {
