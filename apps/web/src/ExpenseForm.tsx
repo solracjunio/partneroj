@@ -30,6 +30,7 @@ const sendProblemText: Record<Failure, string> = {
   refused: "Seu acesso não permite registrar gastos neste projeto.",
   unsupported: "O servidor não aceitou o gasto. Toque em Salvar de novo.",
   unusable: "Este projeto não aceita mais gastos. Volte ao início.",
+  conflict: "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo.",
   error: "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo.",
 };
 
@@ -47,6 +48,7 @@ const uploadProblemText: Record<Failure, string> = {
   "signed-out": "Você saiu do Partneroj, e a foto não foi enviada.",
   refused: "Seu acesso não permite enviar a foto.",
   unusable: "Este gasto não aceita mais fotos.",
+  conflict: "Algo deu errado, e a foto não foi enviada.",
 };
 
 /** Worth another tap: the connection or the server, not the file. */

@@ -131,7 +131,8 @@ a:focus-visible {
   font-weight: 600;
 }
 
-.field input {
+.field input,
+.field textarea {
   box-sizing: border-box;
   width: 100%;
   min-height: 56px;
@@ -144,7 +145,8 @@ a:focus-visible {
   font-size: 1.2rem;
 }
 
-.field input[aria-invalid="true"] {
+.field input[aria-invalid="true"],
+.field textarea[aria-invalid="true"] {
   border-color: var(--problem);
 }
 
@@ -221,6 +223,7 @@ label.choice:has(+ .hidden-file:focus-visible) {
 }
 
 .field input:focus-visible,
+.field textarea:focus-visible,
 button.choice:focus-visible {
   outline: 3px solid var(--text);
   outline-offset: 3px;
@@ -285,4 +288,41 @@ button.choice:focus-visible {
   line-height: 48px;
   font-weight: 600;
   color: var(--primary);
+}
+
+/* The "Lançamento" screen: the status, the facts and the links. */
+.entry-status {
+  margin: 0 0 8px;
+}
+
+.badge-Confirmado {
+  border: 2px solid var(--primary);
+  color: var(--primary);
+}
+
+.entry-facts {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+
+.entry-facts dt {
+  font-weight: 600;
+}
+
+.entry-facts dd {
+  margin: 0;
+}
+
+a.entry-link,
+.feed a.entry-link {
+  display: inline-block;
+  min-height: 48px;
+  line-height: 48px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.field textarea {
+  resize: vertical;
 }

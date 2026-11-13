@@ -47,6 +47,7 @@ describe("api", () => {
     [422, "refused"],
     [413, "unsupported"],
     [415, "unsupported"],
+    [409, "conflict"],
     [500, "error"],
   ])("turns a %i into %s", async (status, failure) => {
     answer(status);
@@ -130,6 +131,23 @@ describe("api", () => {
       method: "POST",
       headers: { "Content-Type": "image/jpeg" },
       body: file,
+    });
+  });
+
+  it("reads one entry and undoes it with a reason", async () => {
+    const fetch = answer(200, { id: "e1" });
+    expect(await api.entry("e1")).toEqual({ ok: true, value: { id: "e1" } });
+    expect(fetch).toHaveBeenCalledWith("/api/entries/e1", {});
+    const reversal = { id: "r1", reversalOf: "e1", amountCents: "-1250" };
+    const undo = answer(201, reversal);
+    expect(await api.reverseEntry("e1", { reason: "valor errado" })).toEqual({
+      ok: true,
+      value: reversal,
+    });
+    expect(undo).toHaveBeenCalledWith("/api/entries/e1/reverse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "valor errado" }),
     });
   });
 });

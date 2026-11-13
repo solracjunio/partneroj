@@ -3,10 +3,13 @@
 // code never sees it, the browser sends it on its own.
 import type {
   CurrentProject,
+  EntryDetails,
   Feed,
   MarkRead,
   NewExpense,
   RecordedExpense,
+  RecordedReversal,
+  ReverseEntryBody,
   UnreadCount,
 } from "@partneroj/contracts";
 
@@ -34,10 +37,17 @@ export interface Me {
  * is its 401; "refused" is its 403 (a reader, or a member without a
  * weight) and 422 (a project or category that is gone); "unsupported"
  * is its 413 and 415 (a file too big, or one it can't read, like HEIC);
+ * "conflict" is its 409 (an entry already undone, or itself an undo);
  * "offline" is no answer at all.
  */
 export type Failure =
-  "unusable" | "signed-out" | "refused" | "unsupported" | "offline" | "error";
+  | "unusable"
+  | "signed-out"
+  | "refused"
+  | "unsupported"
+  | "conflict"
+  | "offline"
+  | "error";
 
 export type Result<T> =
   { ok: true; value: T } | { ok: false; failure: Failure };
@@ -62,6 +72,7 @@ async function call<T>(
   if (response.status === 413 || response.status === 415) {
     return { ok: false, failure: "unsupported" };
   }
+  if (response.status === 409) return { ok: false, failure: "conflict" };
   return { ok: false, failure: "error" };
 }
 
@@ -120,6 +131,22 @@ export const api = {
         body: JSON.stringify(body),
       },
       () => Promise.resolve(undefined),
+    ),
+
+  /** The "Lançamento" screen: one entry, its receipts and status. */
+  entry: (entryId: string) =>
+    call(`/entries/${encodeURIComponent(entryId)}`, {}, json<EntryDetails>),
+
+  /** "Desfazer": only the author, with a reason (ADR 0006). */
+  reverseEntry: (entryId: string, body: ReverseEntryBody) =>
+    call(
+      `/entries/${encodeURIComponent(entryId)}/reverse`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      json<RecordedReversal>,
     ),
 
   /** The receipt of an entry: the body is the file itself. */
