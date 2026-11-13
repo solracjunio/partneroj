@@ -32,6 +32,7 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 10/11/2026 | 5 | 0,5 h* | Tela "Fiz um gasto", parte 1: valor em reais lido como texto até centavos, sem float, com teste de propriedade (fast-check); rascunho validado pelo mesmo contrato do servidor; data do dia local do celular; rota `/gasto` e botão na tela inicial para quem não é leitor (PR #43) | Sim |
 | 11/11/2026 | 5 | 0,5 h* | Teste local da tela "Fiz um gasto" com uma sociedade fictícia: gastos gravados em centavos, no dia local e com o pagador vindo da sessão; leitor sem o botão e recusado pela API (PR #43) | Sim |
 | 11/11/2026 | 5 | 1,25 h* | Tela "Fiz um gasto", parte 2: comprovante pela câmera ou pelo arquivo, reduzido no celular a 2000 px em JPEG, sem GPS nem EXIF; gasto salvo antes da foto, com "Enviar a foto de novo" e foto esquecida enviada pela tela "Gasto salvo."; deploy da parte 1 conferido de fora e pelo celular (PR #44) | Sim |
+| 12/11/2026 | 5 | 1,5 h* | Feed de atividades: `GET /activities` com cursor pelo id (uuidv7), estorno derivado e comprovantes (PR #45); tela "Atividades" com frases simples, hora local e link da foto (PR #46); não lidas com "Atividades (N novas)" na tela inicial e marcação idempotente ao abrir, testada com dois celulares (PR #47); "Desfazer" na API: `POST /entries/:id/reverse` com as regras do domínio na transação e índice único contra dois pedidos simultâneos (PR #48); `GET /entries/:id` para a tela do lançamento, com `canReverse` decidido pelo servidor (PR #49) | Sim |
 
 ## Total por bloco
 
@@ -41,5 +42,5 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 1A. Domínio dos sócios | 18 h | 2,0 h |
 | 2A. Persistência dos sócios | 15 h | 3,5 h |
 | Infra de produção | 12 h | 4,25 h |
-| Versão para os sócios | 30 h | 6,5 h (em andamento) |
+| Versão para os sócios | 30 h | 8,0 h (em andamento) |
 | Importação da planilha | 3 h | |
