@@ -15,6 +15,13 @@ import {
   type ReadyReceipt,
   type ReceiptProblem,
 } from "./receiptPhoto";
+import {
+  ReceiptChooser,
+  ReceiptPreview,
+  receiptProblemText,
+  retryable,
+  uploadProblemText,
+} from "./ReceiptParts";
 import { navigate } from "./routes";
 
 const problemText: Record<DraftProblem, string> = {
@@ -33,26 +40,6 @@ const sendProblemText: Record<Failure, string> = {
   conflict: "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo.",
   error: "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo.",
 };
-
-const receiptProblemText: Record<ReceiptProblem, string> = {
-  kind: "Escolha uma foto ou um PDF.",
-  unreadable: "Não deu para abrir esta foto. Tire outra pela câmera.",
-  "too-big": "O PDF passa de 10 MB. Escolha um arquivo menor.",
-};
-
-/** The photo goes after the expense; each of these keeps the expense saved. */
-const uploadProblemText: Record<Failure, string> = {
-  offline: "Sem conexão, e a foto não foi enviada.",
-  error: "Algo deu errado, e a foto não foi enviada.",
-  unsupported: "O servidor não aceitou este arquivo.",
-  "signed-out": "Você saiu do Partneroj, e a foto não foi enviada.",
-  refused: "Seu acesso não permite enviar a foto.",
-  unusable: "Este gasto não aceita mais fotos.",
-  conflict: "Algo deu errado, e a foto não foi enviada.",
-};
-
-/** Worth another tap: the connection or the server, not the file. */
-const retryable = new Set<Failure>(["offline", "error"]);
 
 type Upload = "none" | "sending" | "sent" | Failure;
 
@@ -356,18 +343,6 @@ function ReceiptField({
   onChoose: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemove: () => void;
 }) {
-  const [preview, setPreview] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (receipt?.kind !== "photo") {
-      setPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(receipt.blob);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [receipt]);
-
   return (
     <fieldset className="field">
       <legend>
@@ -376,13 +351,7 @@ function ReceiptField({
       {preparing && <p className="muted">Preparando a foto…</p>}
       {receipt !== null && !preparing && (
         <div className="receipt">
-          {preview !== null ? (
-            <img src={preview} alt="A foto do comprovante" />
-          ) : (
-            <p>
-              PDF: <strong>{receipt.name}</strong>
-            </p>
-          )}
+          <ReceiptPreview receipt={receipt} />
           <button type="button" className="secondary" onClick={onRemove}>
             Tirar o comprovante
           </button>
@@ -395,40 +364,6 @@ function ReceiptField({
         </p>
       )}
     </fieldset>
-  );
-}
-
-/** Two buttons: the camera, or a photo or PDF already on the phone. */
-function ReceiptChooser({
-  onChoose,
-}: {
-  onChoose: (event: ChangeEvent<HTMLInputElement>) => void;
-}) {
-  return (
-    <div className="choices">
-      {/* The label is the button; the input itself stays hidden. */}
-      <label className="choice" htmlFor="receipt-camera">
-        Tirar foto
-      </label>
-      <input
-        id="receipt-camera"
-        className="hidden-file"
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={onChoose}
-      />
-      <label className="choice" htmlFor="receipt-file">
-        Escolher arquivo
-      </label>
-      <input
-        id="receipt-file"
-        className="hidden-file"
-        type="file"
-        accept="image/*,application/pdf"
-        onChange={onChoose}
-      />
-    </div>
   );
 }
 

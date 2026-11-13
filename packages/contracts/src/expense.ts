@@ -89,4 +89,6 @@ export interface EntryDetails {
   reversalOf: string | null;
   /** Whether "Desfazer" is shown: decided by the server, not the screen. */
   canReverse: boolean;
+  /** Whether "Adicionar comprovante" is shown: decided by the server too. */
+  canAddReceipt: boolean;
 }

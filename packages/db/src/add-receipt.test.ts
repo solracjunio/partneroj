@@ -99,7 +99,7 @@ function receipt(
 }
 
 describe("findEntryForReceipt", () => {
-  it("finds an entry of the partnership, not of another", async () => {
+  it("finds an entry of the partnership with its author, not of another", async () => {
     const ours = await seed();
     const theirs = await seed("Outra Obra");
     expect(
@@ -107,7 +107,7 @@ describe("findEntryForReceipt", () => {
         entryId: ours.entryId,
         partnershipId: ours.partnershipId,
       }),
-    ).toEqual({ id: ours.entryId });
+    ).toEqual({ id: ours.entryId, authorId: ours.joao });
     expect(
       await findEntryForReceipt(app.db, {
         entryId: theirs.entryId,
