@@ -12,7 +12,11 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          // The root has no tsconfig of its own; the coverage config is
+          // its only TypeScript file.
+          allowDefaultProject: ["vitest.config.ts"],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },
