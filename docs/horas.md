@@ -34,6 +34,7 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 11/11/2026 | 5 | 1,25 h* | Tela "Fiz um gasto", parte 2: comprovante pela câmera ou pelo arquivo, reduzido no celular a 2000 px em JPEG, sem GPS nem EXIF; gasto salvo antes da foto, com "Enviar a foto de novo" e foto esquecida enviada pela tela "Gasto salvo."; deploy da parte 1 conferido de fora e pelo celular (PR #44) | Sim |
 | 12/11/2026 | 5 | 1,5 h* | Feed de atividades: `GET /activities` com cursor pelo id (uuidv7), estorno derivado e comprovantes (PR #45); tela "Atividades" com frases simples, hora local e link da foto (PR #46); não lidas com "Atividades (N novas)" na tela inicial e marcação idempotente ao abrir, testada com dois celulares (PR #47); "Desfazer" na API: `POST /entries/:id/reverse` com as regras do domínio na transação e índice único contra dois pedidos simultâneos (PR #48); `GET /entries/:id` para a tela do lançamento, com `canReverse` decidido pelo servidor (PR #49) | Sim |
 | 13/11/2026 | 5 | 1,5 h* | Tela do lançamento: "Ver detalhes ▸" no feed, detalhes, foto e status, "Desfazer" em dois toques com motivo e falha própria para o 409, recarregando o estado do servidor (PR #51); "Adicionar comprovante" num gasto já salvo, com prévia antes de enviar, só pelo autor e também em gasto desfeito, com a regra num lugar só para a rota de envio e o `canAddReceipt` (PR #52); deploys conferidos de fora e pelos dois celulares | Sim |
+| 14/11/2026 | 5 | 0,75 h* | Chave de idempotência no "Fiz um gasto": uma chave por rascunho no cabeçalho `Idempotency-Key`, trocada a cada edição; migration 0008 com índice único por autor, de modo que o gasto reenviado após uma resposta perdida devolve o mesmo lançamento e dois envios simultâneos gravam um só, sem segunda linha no feed nem segundo push; mesma chave com outro gasto recusada com 409; reenvio testado no navegador local e deploy conferido de fora, no banco e pelo celular (PR #54) | Sim |
 
 ## Total por bloco
 
@@ -43,5 +44,5 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 1A. Domínio dos sócios | 18 h | 2,0 h |
 | 2A. Persistência dos sócios | 15 h | 3,5 h |
 | Infra de produção | 12 h | 4,25 h |
-| Versão para os sócios | 30 h | 9,5 h (em andamento) |
+| Versão para os sócios | 30 h | 10,25 h (em andamento) |
 | Importação da planilha | 3 h | |
