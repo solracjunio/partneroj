@@ -71,3 +71,14 @@ export function later<T>(): {
   const promise = new Promise<T>((resolve) => (settle = resolve));
   return { promise, settle };
 }
+
+/**
+ * jsdom has no matchMedia, which the install card asks whether the app
+ * runs from its icon ("display-mode: standalone"). Unstubbed with the rest.
+ */
+export function stubDisplayMode({ standalone }: { standalone: boolean }) {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: standalone && query === "(display-mode: standalone)",
+    media: query,
+  }));
+}
