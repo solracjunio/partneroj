@@ -45,3 +45,8 @@ jobs:
       - run: pnpm typecheck
 
       - run: pnpm test
+
+      # Mutation testing of the domain (Stryker): every surviving mutant
+      # fails the run ("break": 100 in stryker.config.json). A survivor
+      # gets a test, or a "Stryker disable" comment with its reason.
+      - run: pnpm --filter @partneroj/domain mutation
