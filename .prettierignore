@@ -4,6 +4,8 @@ devbox.json
 devbox.lock
 .devbox/
 packages/db/drizzle/
+reports/
+.stryker-tmp/
 
 # Docs are written by hand in Portuguese; tables stay as written
 docs/

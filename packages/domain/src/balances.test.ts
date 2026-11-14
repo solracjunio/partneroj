@@ -67,9 +67,10 @@ describe("computeBalances", () => {
 
   it("rejects an entry for a partner without a weight", () => {
     const entries: Entry[] = [
-      { type: "expense", amount: 100n, from: { partner: "Z" } },
+      { type: "expense", amount: 100n, from: { partner: "p-unweighted" } },
     ];
     expect(() => computeBalances(entries, weights)).toThrow(RangeError);
+    expect(() => computeBalances(entries, weights)).toThrow(/p-unweighted/);
   });
 
   it("cancels an entry with its reversal: same entry, inverted sign", () => {

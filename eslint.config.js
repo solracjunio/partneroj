@@ -5,7 +5,15 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["**/dist/", "**/coverage/", "**/node_modules/", ".devbox/"],
+    ignores: [
+      "**/dist/",
+      "**/coverage/",
+      "**/node_modules/",
+      ".devbox/",
+      // Mutation testing: the report and the sandbox of a stopped run.
+      "**/reports/",
+      "**/.stryker-tmp/",
+    ],
   },
   eslint.configs.recommended,
   tseslint.configs.recommendedTypeChecked,

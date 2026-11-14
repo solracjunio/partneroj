@@ -44,6 +44,7 @@ export function splitByWeights(
 }
 
 function assertValid(weights: readonly Weight[]): void {
+  // Stryker disable next-line StringLiteral: a fixed text with nothing to identify; the tests check the error.
   if (weights.length === 0) throw new RangeError("No weights to split among");
   const seen = new Set<string>();
   for (const { partnerId, weight } of weights) {

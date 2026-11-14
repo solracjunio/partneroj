@@ -24,4 +24,31 @@ describe("totalsByCategory", () => {
       new Map([["expense", new Map([["Material", 10000n]])]]),
     );
   });
+
+  it("totals the entries without a category under an empty name", () => {
+    // The key a screen looks for to show "Sem categoria".
+    const plain: LedgerEntry = {
+      id: "e1",
+      type: "expense",
+      amount: 5000n,
+      from: { partner: "A" },
+    };
+    const material: LedgerEntry = {
+      ...plain,
+      id: "e2",
+      amount: 7000n,
+      category: "Material",
+    };
+    expect(totalsByCategory([plain, { ...plain, id: "e3" }, material])).toEqual(
+      new Map([
+        [
+          "expense",
+          new Map([
+            ["", 10000n],
+            ["Material", 7000n],
+          ]),
+        ],
+      ]),
+    );
+  });
 });
