@@ -22,6 +22,8 @@ describe("matchRoute", () => {
   it("opens the feed", () => {
     expect(matchRoute("/atividades")).toEqual({ page: "feed" });
     expect(matchRoute("/atividades/")).toEqual({ page: "feed" });
+    expect(matchRoute("/saldos")).toEqual({ page: "balances" });
+    expect(matchRoute("/saldos/")).toEqual({ page: "balances" });
   });
 
   it("opens an entry from its link, and reads back the link it makes", () => {

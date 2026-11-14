@@ -326,3 +326,36 @@ a.entry-link,
 .field textarea {
   resize: vertical;
 }
+
+/* "Saldos": one card per partner or account. */
+.balances {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.balances li {
+  padding: 12px 16px;
+  border: 2px solid var(--muted);
+  border-radius: 12px;
+}
+
+.balances p {
+  margin: 4px 0;
+}
+
+.balances-name {
+  font-weight: 600;
+}
+
+.summary {
+  margin: 24px 0;
+}
+
+.summary-amount {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 4px 0;
+}

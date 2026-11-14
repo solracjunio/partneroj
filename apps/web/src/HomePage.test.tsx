@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Me } from "./api";
 import { HomePage } from "./HomePage";
+import type { PartnerBalance, ProjectBalances } from "@partneroj/contracts";
 import { type Answer, fakeServer, stubDisplayMode } from "./testing";
 
 const me = (role: Me["role"]): Me => ({
@@ -17,10 +18,13 @@ const me = (role: Me["role"]): Me => ({
 function homeServer(
   who: Answer,
   unread: Answer = { status: 200, body: { count: 0 } },
+  // No project yet, unless a test gives the balances.
+  balances: Answer = { status: 404 },
 ) {
   return fakeServer({
     "GET /api/me": who,
     "GET /api/activities/unread": unread,
+    "GET /api/projects/current/balances": balances,
   });
 }
 
@@ -86,4 +90,123 @@ it("says there is no connection", async () => {
   expect(
     await screen.findByRole("heading", { name: "Sem conexão" }),
   ).toBeTruthy();
+});
+
+describe("Você já colocou", () => {
+  const ana = me("partner");
+  const partner = (
+    memberId: string,
+    name: string,
+    contributedCents: string,
+    balanceCents: string,
+    more: Partial<PartnerBalance> = {},
+  ): PartnerBalance => ({
+    memberId,
+    name,
+    weight: 1,
+    contributedCents,
+    withdrawnCents: "0",
+    resultPartCents: "0",
+    balanceCents,
+    fairShareCents: "0",
+    ...more,
+  });
+  const other = "01a1c25b-7bf8-7cea-b37d-5194960ba9af";
+  const balances = (
+    partners: PartnerBalance[],
+    sameWeights = true,
+  ): Answer => ({
+    status: 200,
+    body: {
+      project: { id: "01a1c25b-7bf8-7cea-b37d-5194960ba9ae", name: "Casa" },
+      sameWeights,
+      resultCents: "0",
+      partners,
+      accounts: [],
+    } satisfies ProjectBalances,
+  });
+
+  async function openWith(answer: Answer, who: Me = ana) {
+    homeServer({ status: 200, body: who }, undefined, answer);
+    render(<HomePage />);
+    await screen.findByRole("heading", { name: "Olá, Ana." });
+  }
+
+  it("shows what one put in, the average and the balance in words", async () => {
+    await openWith(
+      balances([
+        partner(ana.memberId, "Ana", "1240000", "50000"),
+        partner(other, "Bruno", "1140000", "-50000"),
+      ]),
+    );
+    expect(await screen.findByText("R$ 12.400,00")).toBeTruthy();
+    expect(screen.getByText("Média de cada um: R$ 11.900,00")).toBeTruthy();
+    expect(screen.getByText("Seu saldo: + R$ 500,00")).toBeTruthy();
+    expect(screen.getByText("Você colocou mais que a sua parte.")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: "Ver os saldos de todos ▸" })
+        .getAttribute("href"),
+    ).toBe("/saldos");
+  });
+
+  it("says when one put in less than their part", async () => {
+    await openWith(
+      balances([
+        partner(ana.memberId, "Ana", "1140000", "-50000"),
+        partner(other, "Bruno", "1240000", "50000"),
+      ]),
+    );
+    expect(await screen.findByText("Seu saldo: − R$ 500,00")).toBeTruthy();
+    expect(
+      screen.getByText("Você colocou menos que a sua parte."),
+    ).toBeTruthy();
+  });
+
+  it("compares with one's part by weight when the weights differ", async () => {
+    await openWith(
+      balances(
+        [
+          partner(ana.memberId, "Ana", "1240000", "-260000", {
+            weight: 2,
+            fairShareCents: "1500000",
+          }),
+          partner(other, "Bruno", "1010000", "260000"),
+        ],
+        false,
+      ),
+    );
+    expect(
+      await screen.findByText("Sua parte pela cota: R$ 15.000,00"),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Média de cada um/)).toBeNull();
+  });
+
+  it("says nobody put anything in yet, instead of zeros", async () => {
+    await openWith(
+      balances([
+        partner(ana.memberId, "Ana", "0", "0"),
+        partner(other, "Bruno", "0", "0"),
+      ]),
+    );
+    expect(await screen.findByText("Ninguém colocou nada ainda.")).toBeTruthy();
+    expect(screen.queryByText("Você já colocou")).toBeNull();
+  });
+
+  it("gives a reader only the way to the balances", async () => {
+    await openWith(
+      balances([partner(other, "Bruno", "1240000", "0")]),
+      me("reader"),
+    );
+    expect(
+      await screen.findByRole("link", { name: "Ver os saldos ▸" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Você já colocou")).toBeNull();
+  });
+
+  it("has no summary while there is no project", async () => {
+    await openWith({ status: 404 });
+    expect(screen.queryByText("Você já colocou")).toBeNull();
+    expect(screen.queryByRole("link", { name: /Ver os saldos/ })).toBeNull();
+  });
 });

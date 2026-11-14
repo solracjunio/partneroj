@@ -1,6 +1,22 @@
 // Test helper for the screen tests: a fake API behind `fetch`, as the
 // screens call it through api.ts. Never imported by the app itself.
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
+
+/**
+ * Requests to routes no test listed. The screens catch a failed fetch as
+ * "offline", so throwing inside fetch alone would pass unnoticed: the
+ * test fails here instead, after it ran.
+ */
+let unexpected: string[] = [];
+afterEach(() => {
+  const hit = unexpected;
+  unexpected = [];
+  if (hit.length > 0) {
+    throw new Error(
+      `requests to routes the test didn't list: ${hit.join(", ")}`,
+    );
+  }
+});
 
 /** How the fake server answers a request: a status and body, or no answer. */
 export type Answer =
@@ -19,8 +35,8 @@ export interface Sent {
  * Stubs `fetch` with a server that answers each route, "METHOD /api/path",
  * with its usual answer. `next` queues one-off answers for a route, taken
  * in order before the usual one: a failure, then success. Every request is
- * kept, so a test checks what the screen sent. A route not listed throws,
- * so a screen calling something unexpected fails the test.
+ * kept, so a test checks what the screen sent. A route not listed fails
+ * the test after it runs, even when the screen shows it as "offline".
  *
  * Example: fakeServer({ "GET /api/me": { status: 200, body: me } }).
  */
@@ -38,7 +54,10 @@ export function fakeServer(routes: Record<string, Answer>) {
         body: init.body,
       });
       const answer = queued.get(route)?.shift() ?? routes[route];
-      if (answer === undefined) throw new Error(`unexpected ${route}`);
+      if (answer === undefined) {
+        unexpected.push(route);
+        throw new Error(`unexpected ${route}`);
+      }
       const settled = await answer;
       if (settled === "offline") throw new TypeError("Failed to fetch");
       return new Response(
