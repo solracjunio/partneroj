@@ -308,6 +308,33 @@ export const sessions = pgTable(
   (t) => [unique("sessions_refresh_token_hash_unique").on(t.refreshTokenHash)],
 );
 
+/**
+ * A phone's Web Push subscription (plan section 4), at most one per
+ * session: the member comes from the session, and revoking the session
+ * stops the notifications to that phone. The endpoint is unique too: it
+ * names one browser, so when it signs in again the subscription moves to
+ * the new session instead of being kept twice.
+ */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: id(),
+    sessionId: uuid()
+      .notNull()
+      .references(() => sessions.id),
+    /** The push service's URL for this browser (an https capability URL). */
+    endpoint: text().notNull(),
+    /** The browser's public key and secret, base64url (RFC 8291). */
+    p256dh: text().notNull(),
+    auth: text().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("push_subscriptions_session_id_unique").on(t.sessionId),
+    unique("push_subscriptions_endpoint_unique").on(t.endpoint),
+  ],
+);
+
 export const activityAction = pgEnum("activity_action", [
   "entry_recorded",
   "entry_reversed",

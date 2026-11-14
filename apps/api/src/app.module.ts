@@ -7,6 +7,7 @@ import { EntriesModule } from "./entries/entries.module.js";
 import { FeedModule } from "./feed/feed.module.js";
 import { HealthController } from "./health/health.controller.js";
 import { JobsModule } from "./jobs/jobs.module.js";
+import { NotificationsModule } from "./notifications/notifications.module.js";
 import { ReceiptsModule } from "./receipts/receipts.module.js";
 
 @Module({
@@ -17,6 +18,7 @@ import { ReceiptsModule } from "./receipts/receipts.module.js";
     BalancesModule,
     EntriesModule,
     FeedModule,
+    NotificationsModule,
     ReceiptsModule,
   ],
   controllers: [HealthController],
