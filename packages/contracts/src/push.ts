@@ -51,3 +51,16 @@ export type PushSubscriptionBody = z.infer<typeof pushSubscription>;
 export interface VapidKey {
   publicKey: string;
 }
+
+/**
+ * What the worker sends inside a push and the service worker shows. The
+ * tag is the event's id: a push sent again replaces the first while it is
+ * still in the tray (plan section 4). url is a path of this site, opened
+ * by a tap on the notification.
+ */
+export interface PushMessage {
+  title: string;
+  body: string;
+  tag: string;
+  url: string;
+}

@@ -29,6 +29,7 @@ export {
 export {
   isPushEndpoint,
   pushSubscription,
+  type PushMessage,
   type PushSubscriptionBody,
   type VapidKey,
 } from "./push.js";
