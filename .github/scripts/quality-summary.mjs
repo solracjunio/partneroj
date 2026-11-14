@@ -3,8 +3,9 @@
 // reports the run already made, so it costs no extra test run:
 //   coverage/coverage-summary.json                 (pnpm coverage)
 //   packages/domain/reports/mutation/mutation.json (pnpm --filter @partneroj/domain mutation)
+//   reports/complexity/eslint.json                 (pnpm complexity)
 // Usage: node .github/scripts/quality-summary.mjs >> "$GITHUB_STEP_SUMMARY"
-// Locally, `pnpm quality` runs all three and prints the same tables.
+// Locally, `pnpm quality` runs them all and prints the same tables.
 import { readFileSync } from "node:fs";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
@@ -129,7 +130,77 @@ export function mutationSection(report) {
   return `${score}\n\n**Survivors**\n\n${survivors}`;
 }
 
-export function render({ coverage, mutation }) {
+/**
+ * Each function's cyclomatic complexity (1 + its decision points), from
+ * ESLint's JSON report of the `complexity` rule with max 0, which reports
+ * every function. The name is the one quoted in the message ("Async
+ * function 'x'"), or the kind when it has none ("Arrow function").
+ */
+export function complexityRows(report, root) {
+  const rows = [];
+  for (const { filePath, messages } of report) {
+    const file = filePath.startsWith(`${root}/`)
+      ? filePath.slice(root.length + 1)
+      : filePath;
+    for (const m of messages) {
+      if (m.ruleId !== "complexity") continue;
+      const found = /^(.*?) has a complexity of (\d+)/.exec(m.message);
+      if (found === null) continue;
+      const kind = found[1];
+      const name = /'(.+)'/.exec(kind)?.[1] ?? kind;
+      rows.push({ name, file, line: m.line, complexity: Number(found[2]) });
+    }
+  }
+  return rows;
+}
+
+/** 🟢 up to 10, 🟡 up to 15, 🔴 above: the usual reading of McCabe's. */
+export function complexityLight(n) {
+  if (n <= 10) return "🟢";
+  if (n <= 15) return "🟡";
+  return "🔴";
+}
+
+const COMPLEXITY_LEGEND = "🟢 up to 10 · 🟡 11 to 15 · 🔴 above 15";
+const TOP = 5;
+
+/** How many functions in each range, then the TOP most complex. */
+export function complexitySection(rows) {
+  const ranges = table(
+    ["Range", "Functions", ""],
+    ["---", "--:", ":-:"],
+    [
+      ["1–10", rows.filter((r) => r.complexity <= 10).length, "🟢"],
+      [
+        "11–15",
+        rows.filter((r) => r.complexity > 10 && r.complexity <= 15).length,
+        "🟡",
+      ],
+      ["16+", rows.filter((r) => r.complexity > 15).length, "🔴"],
+    ],
+  );
+  const top = [...rows]
+    .sort(
+      (a, b) =>
+        b.complexity - a.complexity ||
+        a.file.localeCompare(b.file) ||
+        a.line - b.line,
+    )
+    .slice(0, TOP);
+  const mostComplex = table(
+    ["Function", "Where", "Complexity", ""],
+    ["---", "---", "--:", ":-:"],
+    top.map((r) => [
+      r.name,
+      `\`${r.file}:${r.line}\``,
+      String(r.complexity),
+      complexityLight(r.complexity),
+    ]),
+  );
+  return `${ranges}\n\n${mostComplex}`;
+}
+
+export function render({ coverage, mutation, complexity }) {
   return [
     "## Coverage and mutation",
     "",
@@ -147,7 +218,20 @@ export function render({ coverage, mutation }) {
     "",
     LEGEND,
     "",
+    "### Complexity (per function)",
+    "",
+    complexity === null
+      ? "_No complexity report: the complexity step did not finish._"
+      : complexitySection(complexity),
+    "",
+    COMPLEXITY_LEGEND,
+    "",
   ].join("\n");
+}
+
+/** The functions' complexity, or null without the report. */
+function complexityOf(report) {
+  return report === null ? null : complexityRows(report, process.cwd());
 }
 
 /** The report's JSON, or null when the step that writes it did not finish. */
@@ -164,6 +248,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     render({
       coverage: readReport("coverage/coverage-summary.json"),
       mutation: readReport("packages/domain/reports/mutation/mutation.json"),
+      complexity: complexityOf(readReport("reports/complexity/eslint.json")),
     }),
   );
 }
