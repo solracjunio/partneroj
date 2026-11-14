@@ -32,8 +32,6 @@ export function EntryPage({ id }: { id: string }) {
   const [me, setMe] = useState<Me | null>(null);
   const [entry, setEntry] = useState<EntryDetails | null>(null);
   const [problem, setProblem] = useState<Failure | null>(null);
-  const [reason, setReason] = useState("");
-  const [undo, setUndo] = useState<Undo>({ step: "closed" });
 
   async function load() {
     setProblem(null);
@@ -49,22 +47,6 @@ export function EntryPage({ id }: { id: string }) {
     // Only once: App gives each entry its own page (key).
   }, []);
 
-  async function confirmUndo() {
-    const checked = checkReason(reason);
-    if (!checked.ok)
-      return setUndo({ step: "asking", problem: checked.problem });
-    setUndo({ step: "sending" });
-    const result = await api.reverseEntry(id, { reason: checked.reason });
-    if (result.ok) {
-      setUndo({ step: "done" });
-    } else {
-      setUndo({ step: "failed", failure: result.failure });
-    }
-    // Undone now, or by someone else first (409): the screen shows the
-    // server's state either way, never a guess of it.
-    if (result.ok || result.failure === "conflict") await load();
-  }
-
   const back = (
     <p>
       <a href="/atividades">← Voltar às atividades</a>
@@ -76,20 +58,7 @@ export function EntryPage({ id }: { id: string }) {
       <section>
         {back}
         <h1>Lançamento</h1>
-        <div className="actions">
-          <p role="alert" className="problem">
-            {loadProblemText[problem]}
-          </p>
-          {(problem === "offline" || problem === "error") && (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => void load()}
-            >
-              Tentar de novo
-            </button>
-          )}
-        </div>
+        <LoadProblem problem={problem} onRetry={() => void load()} />
       </section>
     );
   }
@@ -168,6 +137,73 @@ export function EntryPage({ id }: { id: string }) {
         </p>
       )}
 
+      <UndoEntry
+        entryId={entry.id}
+        canReverse={entry.canReverse}
+        onChanged={load}
+      />
+    </section>
+  );
+}
+
+/** Why the entry could not load; "Tentar de novo" when it may work later. */
+function LoadProblem({
+  problem,
+  onRetry,
+}: {
+  problem: Failure;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="actions">
+      <p role="alert" className="problem">
+        {loadProblemText[problem]}
+      </p>
+      {(problem === "offline" || problem === "error") && (
+        <button type="button" className="secondary" onClick={onRetry}>
+          Tentar de novo
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Desfazer" (ADR 0006), with its own state: the reason and the step.
+ * Rendered even when the entry can no longer be undone, so "Gasto
+ * desfeito." still shows after the reload that makes canReverse false.
+ */
+function UndoEntry({
+  entryId,
+  canReverse,
+  onChanged,
+}: {
+  entryId: string;
+  canReverse: boolean;
+  /** Reloads the entry: the screen shows the server's state. */
+  onChanged: () => Promise<void>;
+}) {
+  const [reason, setReason] = useState("");
+  const [undo, setUndo] = useState<Undo>({ step: "closed" });
+
+  async function confirmUndo() {
+    const checked = checkReason(reason);
+    if (!checked.ok)
+      return setUndo({ step: "asking", problem: checked.problem });
+    setUndo({ step: "sending" });
+    const result = await api.reverseEntry(entryId, { reason: checked.reason });
+    if (result.ok) {
+      setUndo({ step: "done" });
+    } else {
+      setUndo({ step: "failed", failure: result.failure });
+    }
+    // Undone now, or by someone else first (409): the screen shows the
+    // server's state either way, never a guess of it.
+    if (result.ok || result.failure === "conflict") await onChanged();
+  }
+
+  return (
+    <>
       {undo.step === "done" && (
         <p role="status" className="notice">
           Gasto desfeito. Os outros sócios vão ver o motivo nas atividades.
@@ -180,66 +216,61 @@ export function EntryPage({ id }: { id: string }) {
         </p>
       )}
 
-      {entry.canReverse &&
-        undo.step !== "asking" &&
-        undo.step !== "sending" && (
+      {canReverse && undo.step !== "asking" && undo.step !== "sending" && (
+        <div className="actions">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setUndo({ step: "asking" })}
+          >
+            Desfazer este gasto
+          </button>
+        </div>
+      )}
+
+      {canReverse && (undo.step === "asking" || undo.step === "sending") && (
+        <div className="undo">
+          <div className="field">
+            <label htmlFor="reason">Por que desfazer?</label>
+            <p className="muted">
+              O gasto continua no histórico, marcado como desfeito. Os outros
+              sócios veem o motivo.
+            </p>
+            <textarea
+              id="reason"
+              rows={3}
+              maxLength={REASON_MAX}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              aria-invalid={
+                undo.step === "asking" && undo.problem !== undefined
+              }
+              disabled={undo.step === "sending"}
+            />
+            {undo.step === "asking" && undo.problem !== undefined && (
+              <p className="problem">{undo.problem}</p>
+            )}
+          </div>
           <div className="actions">
             <button
               type="button"
-              className="secondary"
-              onClick={() => setUndo({ step: "asking" })}
+              className="primary"
+              disabled={undo.step === "sending"}
+              onClick={() => void confirmUndo()}
             >
-              Desfazer este gasto
+              {undo.step === "sending" ? "Desfazendo…" : "Confirmar: desfazer"}
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={undo.step === "sending"}
+              onClick={() => setUndo({ step: "closed" })}
+            >
+              Cancelar
             </button>
           </div>
-        )}
-
-      {entry.canReverse &&
-        (undo.step === "asking" || undo.step === "sending") && (
-          <div className="undo">
-            <div className="field">
-              <label htmlFor="reason">Por que desfazer?</label>
-              <p className="muted">
-                O gasto continua no histórico, marcado como desfeito. Os outros
-                sócios veem o motivo.
-              </p>
-              <textarea
-                id="reason"
-                rows={3}
-                maxLength={REASON_MAX}
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                aria-invalid={
-                  undo.step === "asking" && undo.problem !== undefined
-                }
-                disabled={undo.step === "sending"}
-              />
-              {undo.step === "asking" && undo.problem !== undefined && (
-                <p className="problem">{undo.problem}</p>
-              )}
-            </div>
-            <div className="actions">
-              <button
-                type="button"
-                className="primary"
-                disabled={undo.step === "sending"}
-                onClick={() => void confirmUndo()}
-              >
-                {undo.step === "sending"
-                  ? "Desfazendo…"
-                  : "Confirmar: desfazer"}
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                disabled={undo.step === "sending"}
-                onClick={() => setUndo({ step: "closed" })}
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
-    </section>
+        </div>
+      )}
+    </>
   );
 }

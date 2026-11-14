@@ -296,6 +296,14 @@ describe("add-categories", () => {
   });
 });
 
+it.each(["toString", "constructor", "__proto__"])(
+  "answers a name every object inherits, %s, with the usage",
+  async (name) => {
+    // Not run as a command: only the names listed are commands.
+    expect(await failure(admin([name]))).toBe(adminUsage);
+  },
+);
+
 it("answers an unknown or missing command with the usage", async () => {
   expect(await failure(admin(["delete-everything"]))).toBe(adminUsage);
   expect(await failure(admin([]))).toBe(adminUsage);
