@@ -44,9 +44,21 @@ jobs:
 
       - run: pnpm typecheck
 
-      - run: pnpm test
+      # The summary script's own tests.
+      - run: pnpm test:scripts
+
+      # Every package's tests in one run, measuring coverage: the same
+      # tests as `pnpm test`, with the report the summary reads.
+      - run: pnpm coverage
 
       # Mutation testing of the domain (Stryker): every surviving mutant
       # fails the run ("break": 100 in stryker.config.json). A survivor
       # gets a test, or a "Stryker disable" comment with its reason.
       - run: pnpm --filter @partneroj/domain mutation
+
+      # Coverage and mutation as tables on the run's Summary page. Also
+      # after a failure, which it reports (survivors by file and line); a
+      # report a failed step never wrote shows as missing.
+      - name: Coverage and mutation summary
+        if: ${{ !cancelled() }}
+        run: node .github/scripts/quality-summary.mjs >> "$GITHUB_STEP_SUMMARY"
