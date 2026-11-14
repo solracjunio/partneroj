@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -8,6 +8,7 @@ import {
   type PocketExpense,
 } from "./expenses.js";
 import { installJobQueue, queues, startJobQueue } from "./jobs.js";
+import { recordEntry } from "./record-entry.js";
 import { createPartnership } from "./partnerships.js";
 import { addCategories, createProject } from "./projects.js";
 import { activities, categories, entries } from "./schema.js";
@@ -89,6 +90,35 @@ const expense = (
   description: " cimento ",
   ...overrides,
 });
+
+type Seed = Awaited<ReturnType<typeof seed>>;
+
+/** A second project in the seed's partnership, João weighing 1. */
+async function otherProject(s: Seed): Promise<string> {
+  const project = await createProject(app.db, {
+    partnershipId: s.partnershipId,
+    name: "Loja",
+    kind: "ongoing",
+    startsOn: "2027-01-11",
+    weights: [{ memberId: s.joao, weight: 1 }],
+    actorId: null,
+  });
+  return project.id;
+}
+
+/** The seed's other category. */
+async function taxas(s: Seed): Promise<string> {
+  const [row] = await t.db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(
+      and(
+        eq(categories.partnershipId, s.partnershipId),
+        eq(categories.name, "Taxas"),
+      ),
+    );
+  return row!.id;
+}
 
 async function refusal(promise: Promise<unknown>): Promise<string> {
   try {
@@ -302,6 +332,59 @@ describe("recordExpense with an idempotency key", () => {
       .from(entries)
       .where(eq(entries.authorId, s.joao));
     expect(rows).toHaveLength(1);
+  });
+
+  // Each field the comparison checks, changed alone: a reused key must
+  // never answer with the earlier expense when any of them differs.
+  it.each([
+    ["project", async (s: Seed) => ({ projectId: await otherProject(s) })],
+    ["category", async (s: Seed) => ({ categoryId: await taxas(s) })],
+    ["date", () => Promise.resolve({ occurredOn: "2027-01-13" })],
+    ["description", () => Promise.resolve({ description: "areia" })],
+    ["description left out", () => Promise.resolve({ description: undefined })],
+  ] as const)(
+    "refuses the same key with a different %s",
+    async (_field, change: (s: Seed) => Promise<Partial<PocketExpense>>) => {
+      const s = await seed();
+      const payer = { memberId: s.joao, partnershipId: s.partnershipId };
+      const k = key();
+      await recordExpense(
+        app.db,
+        boss,
+        payer,
+        expense(s, { idempotencyKey: k }),
+      );
+      const changed = expense(s, { idempotencyKey: k, ...(await change(s)) });
+      expect(await refusal(recordExpense(app.db, boss, payer, changed))).toBe(
+        "key-reused",
+      );
+    },
+  );
+
+  it("refuses a key already on an entry that is not an expense", async () => {
+    // Only expenses get a key through the app, but the column is on every
+    // entry: one written by a script must not answer as an expense.
+    const s = await seed();
+    const k = key();
+    await recordEntry(app.db, boss, {
+      projectId: s.projectId,
+      type: "in-kind",
+      amount: 15000n,
+      occurredOn: "2027-01-12",
+      accrualOn: "2027-01-12",
+      fromMemberId: s.joao,
+      categoryId: s.materialId,
+      description: "cimento",
+      authorId: s.joao,
+      source: "app",
+      idempotencyKey: k,
+    });
+    const payer = { memberId: s.joao, partnershipId: s.partnershipId };
+    expect(
+      await refusal(
+        recordExpense(app.db, boss, payer, expense(s, { idempotencyKey: k })),
+      ),
+    ).toBe("key-reused");
   });
 
   it("matches the description as it was stored, trimmed", async () => {
