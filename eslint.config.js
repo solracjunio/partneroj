@@ -33,5 +33,13 @@ export default tseslint.config(
     files: ["**/*.{js,mjs}"],
     extends: [tseslint.configs.disableTypeChecked],
   },
+  {
+    // Cyclomatic complexity (1 + decision points): a function above 15
+    // fails the lint. The CI summary lists the most complex ones
+    // (eslint.complexity.config.js); a function near the limit is split
+    // before it grows past it. The throwaway prototype is left out.
+    ignores: ["prototype/**"],
+    rules: { complexity: ["error", 15] },
+  },
   prettier,
 );
