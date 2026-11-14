@@ -13,6 +13,7 @@ export class DomainError extends Error {
     message: string,
   ) {
     super(message);
+    // Stryker disable next-line StringLiteral: only the label of a stack trace; callers check instanceof and code.
     this.name = "DomainError";
   }
 }

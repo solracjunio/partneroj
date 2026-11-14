@@ -51,9 +51,10 @@ describe("splitByWeights", () => {
   });
 
   it.each([0, -1, 1.5, Number.NaN])("rejects a weight of %d", (weight) => {
-    expect(() => splitByWeights(100n, [{ partnerId: "A", weight }])).toThrow(
-      RangeError,
-    );
+    const split = () => splitByWeights(100n, [{ partnerId: "p-odd", weight }]);
+    expect(split).toThrow(RangeError);
+    // The message names the partner, for the log or the admin-cli.
+    expect(split).toThrow(/p-odd/);
   });
 
   it("rejects an empty list of weights", () => {
@@ -62,10 +63,11 @@ describe("splitByWeights", () => {
 
   it("rejects a partner listed twice", () => {
     const twice = [
-      { partnerId: "A", weight: 1 },
-      { partnerId: "A", weight: 1 },
+      { partnerId: "p-twice", weight: 1 },
+      { partnerId: "p-twice", weight: 1 },
     ];
     expect(() => splitByWeights(100n, twice)).toThrow(RangeError);
+    expect(() => splitByWeights(100n, twice)).toThrow(/p-twice/);
   });
 
   describe("properties", () => {

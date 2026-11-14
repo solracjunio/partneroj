@@ -80,6 +80,7 @@ export function computeBalances(
         paidBy({ account: entry.fromAccount }, entry.amount);
         receivedBy({ account: entry.toAccount }, entry.amount);
         break;
+      // Stryker disable next-line all: unreachable, the compiler checks every entry type is handled above.
       default:
         entry satisfies never;
     }

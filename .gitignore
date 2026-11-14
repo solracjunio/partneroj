@@ -3,6 +3,9 @@ node_modules/
 dist/
 build/
 coverage/
+# Mutation testing (Stryker): its report and its sandbox
+reports/
+.stryker-tmp/
 *.tsbuildinfo
 .turbo/
 .vite/

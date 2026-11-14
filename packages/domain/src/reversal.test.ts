@@ -31,6 +31,17 @@ function refusal(action: () => unknown): DomainErrorCode | undefined {
   return undefined;
 }
 
+/** The message of the refusal: it names what was refused, for the log. */
+function refusalMessage(action: () => unknown): string {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof DomainError) return error.message;
+    throw error;
+  }
+  return "no refusal";
+}
+
 describe("createReversal", () => {
   it("keeps the type and category and inverts the sign", () => {
     const reversal = createReversal([cement], weights, {
@@ -62,15 +73,14 @@ describe("createReversal", () => {
   });
 
   it("refuses to reverse an entry that does not exist", () => {
-    expect(
-      refusal(() =>
-        createReversal([cement], weights, {
-          id: "e2",
-          originalId: "nope",
-          reason: "duplicate",
-        }),
-      ),
-    ).toBe("entry-not-found");
+    const reverse = () =>
+      createReversal([cement], weights, {
+        id: "e2",
+        originalId: "nope",
+        reason: "duplicate",
+      });
+    expect(refusal(reverse)).toBe("entry-not-found");
+    expect(refusalMessage(reverse)).toContain("nope");
   });
 
   describe("after a first reversal", () => {
@@ -82,15 +92,14 @@ describe("createReversal", () => {
     const ledger = [cement, first];
 
     it("refuses to reverse the same entry twice", () => {
-      expect(
-        refusal(() =>
-          createReversal(ledger, weights, {
-            id: "e3",
-            originalId: "e1",
-            reason: "again",
-          }),
-        ),
-      ).toBe("already-reversed");
+      const reverse = () =>
+        createReversal(ledger, weights, {
+          id: "e3",
+          originalId: "e1",
+          reason: "again",
+        });
+      expect(refusal(reverse)).toBe("already-reversed");
+      expect(refusalMessage(reverse)).toContain("e1");
     });
 
     it("refuses to reverse a reversal", () => {
@@ -117,15 +126,14 @@ describe("createReversal", () => {
       },
       { id: "e1", type: "expense", amount: 80000n, from: { account: "X" } },
     ];
-    expect(
-      refusal(() =>
-        createReversal(ledger, weights, {
-          id: "e2",
-          originalId: "o1",
-          reason: "wrong account",
-        }),
-      ),
-    ).toBe("account-overdrawn");
+    const reverse = () =>
+      createReversal(ledger, weights, {
+        id: "e2",
+        originalId: "o1",
+        reason: "wrong account",
+      });
+    expect(refusal(reverse)).toBe("account-overdrawn");
+    expect(refusalMessage(reverse)).toContain("Account X");
   });
 });
 
