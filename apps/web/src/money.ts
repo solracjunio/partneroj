@@ -37,12 +37,5 @@ function toCents(reais: string, fraction: string): string | null {
   return digits;
 }
 
-/**
- * Shows cents as reais, without the "R$". Example: "125000" gives
- * "1.250,00".
- */
-export function formatCents(cents: string): string {
-  const padded = cents.padStart(3, "0");
-  const reais = padded.slice(0, -2).replace(/\B(?=(\d{3})+$)/g, ".");
-  return `${reais},${padded.slice(-2)}`;
-}
+// Shared with the worker's notifications, so both read the same.
+export { formatCents } from "@partneroj/contracts";

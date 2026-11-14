@@ -26,6 +26,7 @@ export {
   type MarkRead,
   type UnreadCount,
 } from "./feed.js";
+export { formatCents } from "./money.js";
 export {
   isPushEndpoint,
   pushSubscription,
