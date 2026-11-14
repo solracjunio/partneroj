@@ -35,6 +35,7 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 12/11/2026 | 5 | 1,5 h* | Feed de atividades: `GET /activities` com cursor pelo id (uuidv7), estorno derivado e comprovantes (PR #45); tela "Atividades" com frases simples, hora local e link da foto (PR #46); não lidas com "Atividades (N novas)" na tela inicial e marcação idempotente ao abrir, testada com dois celulares (PR #47); "Desfazer" na API: `POST /entries/:id/reverse` com as regras do domínio na transação e índice único contra dois pedidos simultâneos (PR #48); `GET /entries/:id` para a tela do lançamento, com `canReverse` decidido pelo servidor (PR #49) | Sim |
 | 13/11/2026 | 5 | 1,5 h* | Tela do lançamento: "Ver detalhes ▸" no feed, detalhes, foto e status, "Desfazer" em dois toques com motivo e falha própria para o 409, recarregando o estado do servidor (PR #51); "Adicionar comprovante" num gasto já salvo, com prévia antes de enviar, só pelo autor e também em gasto desfeito, com a regra num lugar só para a rota de envio e o `canAddReceipt` (PR #52); deploys conferidos de fora e pelos dois celulares | Sim |
 | 14/11/2026 | 5 | 0,75 h* | Chave de idempotência no "Fiz um gasto": uma chave por rascunho no cabeçalho `Idempotency-Key`, trocada a cada edição; migration 0008 com índice único por autor, de modo que o gasto reenviado após uma resposta perdida devolve o mesmo lançamento e dois envios simultâneos gravam um só, sem segunda linha no feed nem segundo push; mesma chave com outro gasto recusada com 409; reenvio testado no navegador local e deploy conferido de fora, no banco e pelo celular (PR #54) | Sim |
+| 14/11/2026 | 5 | 2,5 h* | Cobertura de testes: relatório do repositório inteiro (PR #56), comandos do `admin-cli` separados e testados num banco real (PR #57) e pontos de entrada fora do relatório (PR #58); testes de todas as telas do web, como o usuário vê, com um servidor falso por rota (PRs #59 a #61), cada regra conferida quebrando o código à mão; brecha do `sameExpense` fechada, um teste por campo (PR #62); teste de mutação com Stryker no domínio, de 92,9% para 100%, e no CI barrando qualquer mutante sobrevivente (PRs #63 e #64); saldos e "quanto cada um já colocou": parte de cada um pela cota no domínio, saldos do projeto no banco com os pesos na ordem do sorteio (PR #65), `GET /projects/current/balances` (PR #66), resumo na tela inicial e tela "Saldos" com o aviso sobre o imóvel (PR #67); deploy conferido de fora, no servidor e pelo celular | Sim |
 
 ## Total por bloco
 
@@ -44,5 +45,5 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 1A. Domínio dos sócios | 18 h | 2,0 h |
 | 2A. Persistência dos sócios | 15 h | 3,5 h |
 | Infra de produção | 12 h | 4,25 h |
-| Versão para os sócios | 30 h | 10,25 h (em andamento) |
+| Versão para os sócios | 30 h | 12,75 h (em andamento) |
 | Importação da planilha | 3 h | |
