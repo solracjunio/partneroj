@@ -18,3 +18,4 @@ export {
   type ReversalRequest,
 } from "./reversal.js";
 export { totalsByCategory } from "./categories.js";
+export { fairShares, sameWeights } from "./contributions.js";

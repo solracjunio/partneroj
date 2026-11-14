@@ -25,19 +25,31 @@ export async function currentProject(
   db: Database,
   partnershipId: string,
 ): Promise<ProjectForEntries | null> {
-  const [project] = await db
-    .select({ id: projects.id, name: projects.name })
-    .from(projects)
-    .where(eq(projects.partnershipId, partnershipId))
-    .orderBy(desc(projects.createdAt))
-    .limit(1);
-  if (project === undefined) return null;
+  const project = await newestProject(db, partnershipId);
+  if (project === null) return null;
   const buttons = await db
     .select({ id: categories.id, name: categories.name })
     .from(categories)
     .where(eq(categories.partnershipId, partnershipId))
     .orderBy(asc(categories.name));
   return { project, categories: buttons };
+}
+
+/**
+ * The project the partners' version works in: the partnership's newest.
+ * "Fiz um gasto" records into it and the balances are of it.
+ */
+export async function newestProject(
+  db: Database,
+  partnershipId: string,
+): Promise<{ id: string; name: string } | null> {
+  const [project] = await db
+    .select({ id: projects.id, name: projects.name })
+    .from(projects)
+    .where(eq(projects.partnershipId, partnershipId))
+    .orderBy(desc(projects.createdAt))
+    .limit(1);
+  return project ?? null;
 }
 
 /** Why an expense was refused; the API turns each into a response. */
