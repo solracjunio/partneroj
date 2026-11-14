@@ -56,7 +56,12 @@ jobs:
       # gets a test, or a "Stryker disable" comment with its reason.
       - run: pnpm --filter @partneroj/domain mutation
 
-      # Coverage and mutation as tables on the run's Summary page. Also
+      # Each function's cyclomatic complexity, for the summary. It only
+      # measures: no limit, it never fails the run.
+      - run: pnpm complexity
+
+      # Coverage, mutation and complexity as tables on the run's Summary
+      # page. Also
       # after a failure, which it reports (survivors by file and line); a
       # report a failed step never wrote shows as missing.
       - name: Coverage and mutation summary
