@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
   ForbiddenException,
   Get,
   Header,
+  Headers,
   Inject,
   NotFoundException,
   Param,
@@ -15,6 +17,7 @@ import {
 import {
   type CurrentProject,
   type EntryDetails,
+  idempotencyKey,
   newExpense,
   type NewExpense,
   type RecordedExpense,
@@ -109,14 +112,22 @@ export class EntriesController {
   /**
    * "Fiz um gasto": an expense paid from the signed-in member's own
    * pocket. Who paid is the session, not a field of the body.
+   *
+   * With an Idempotency-Key, a save sent again returns the expense already
+   * recorded (same answer, nothing written twice); the same key with a
+   * different expense is 409.
    */
   @Post("entries/expenses")
   async recordExpense(
     @CurrentMember() member: SessionMember,
     @Body(new ZodBody(newExpense)) body: NewExpense,
+    @Headers("idempotency-key") key: string | undefined,
   ): Promise<RecordedExpense> {
     // Plan section 2: a reader only follows.
     if (member.role === "reader") throw new ForbiddenException();
+    if (key !== undefined && !idempotencyKey.safeParse(key).success) {
+      throw new BadRequestException("invalid_idempotency_key");
+    }
     try {
       const row = await recordExpense(
         this.db,
@@ -128,6 +139,7 @@ export class EntriesController {
           categoryId: body.categoryId,
           occurredOn: body.occurredOn,
           description: body.description,
+          idempotencyKey: key,
         },
       );
       return {
@@ -141,6 +153,9 @@ export class EntriesController {
       // one that doesn't exist: 422, the body points at nothing usable.
       if (error.reason === "payer-without-weight") {
         throw new ForbiddenException(error.reason);
+      }
+      if (error.reason === "key-reused") {
+        throw new ConflictException(error.reason);
       }
       throw new UnprocessableEntityException(error.reason);
     }

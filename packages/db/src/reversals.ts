@@ -14,6 +14,7 @@ import type { PgBoss } from "pg-boss";
 import type { Database } from "./client.js";
 import type { Transaction } from "./jobs.js";
 import { recordEntryIn, type Entry } from "./record-entry.js";
+import { isUniqueViolation } from "./pg-errors.js";
 import { entries, projects, weights } from "./schema.js";
 
 /** Why a reversal was refused; the API turns each into a response. */
@@ -97,11 +98,6 @@ function toLedgerEntry(row: Entry): LedgerEntry {
     ...(row.reversalOf === null ? {} : { reversalOf: row.reversalOf }),
     ...(row.reversalReason === null ? {} : { reason: row.reversalReason }),
   };
-}
-
-/** Postgres' unique_violation: here, entries_reversal_of_unique. */
-function isUniqueViolation(error: unknown): boolean {
-  return (error as { cause?: { code?: string } }).cause?.code === "23505";
 }
 
 /**

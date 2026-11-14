@@ -237,6 +237,59 @@ describe("POST /entries/expenses", () => {
     const s = await seed();
     await http().post("/entries/expenses").send(body(s)).expect(401);
   });
+
+  it("answers a save sent again with the same key with the same expense", async () => {
+    const s = await seed();
+    const cookie = await signIn(s.joao);
+    const key = crypto.randomUUID();
+    const send = () =>
+      http()
+        .post("/entries/expenses")
+        .set("Cookie", cookie)
+        .set("Idempotency-Key", key)
+        .send(body(s))
+        .expect(201);
+    const first = await send();
+    const again = await send();
+    expect(again.body).toEqual(first.body);
+    const rows = await t.db
+      .select()
+      .from(entries)
+      .where(eq(entries.authorId, s.joao));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("answers 409 for the same key with a different expense", async () => {
+    const s = await seed();
+    const cookie = await signIn(s.joao);
+    const key = crypto.randomUUID();
+    await http()
+      .post("/entries/expenses")
+      .set("Cookie", cookie)
+      .set("Idempotency-Key", key)
+      .send(body(s))
+      .expect(201);
+    await http()
+      .post("/entries/expenses")
+      .set("Cookie", cookie)
+      .set("Idempotency-Key", key)
+      .send({ ...body(s), amountCents: "16000" })
+      .expect(409);
+  });
+
+  it("answers 400 for a key that is not a uuid", async () => {
+    const s = await seed();
+    const cookie = await signIn(s.joao);
+    const response = await http()
+      .post("/entries/expenses")
+      .set("Cookie", cookie)
+      .set("Idempotency-Key", "salvar-1")
+      .send(body(s))
+      .expect(400);
+    expect(response.body).toMatchObject({
+      message: "invalid_idempotency_key",
+    });
+  });
 });
 
 describe("POST /entries/:entryId/reverse", () => {

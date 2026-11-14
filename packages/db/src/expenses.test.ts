@@ -73,6 +73,7 @@ async function seed(name = "Obra Teste") {
     projectId: project.id,
     materialId: material!.id,
     joao: joao!,
+    maria: maria!,
     leo: leo!,
   };
 }
@@ -212,5 +213,139 @@ describe("recordExpense", () => {
       expense(s, { description: "   " }),
     );
     expect(row.description).toBeNull();
+  });
+});
+
+describe("recordExpense with an idempotency key", () => {
+  const key = () => crypto.randomUUID();
+
+  it("returns the first expense when the same save comes again", async () => {
+    const s = await seed();
+    const payer = { memberId: s.joao, partnershipId: s.partnershipId };
+    const k = key();
+    const first = await recordExpense(
+      app.db,
+      boss,
+      payer,
+      expense(s, { idempotencyKey: k }),
+    );
+    const again = await recordExpense(
+      app.db,
+      boss,
+      payer,
+      expense(s, { idempotencyKey: k }),
+    );
+    expect(again.id).toBe(first.id);
+    const rows = await t.db
+      .select()
+      .from(entries)
+      .where(eq(entries.authorId, s.joao));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("writes no second feed row or push for the repeated save", async () => {
+    const s = await seed();
+    const payer = { memberId: s.joao, partnershipId: s.partnershipId };
+    const k = key();
+    const first = await recordExpense(
+      app.db,
+      boss,
+      payer,
+      expense(s, { idempotencyKey: k }),
+    );
+    await recordExpense(app.db, boss, payer, expense(s, { idempotencyKey: k }));
+    const feed = await t.db
+      .select()
+      .from(activities)
+      .where(eq(activities.entryId, first.id));
+    expect(feed).toHaveLength(1);
+    const jobs = await boss.fetch(queues.entryNotification, { batchSize: 50 });
+    const ours = jobs.filter(
+      (j) => (j.data as { entryId: string }).entryId === first.id,
+    );
+    expect(ours).toHaveLength(1);
+  });
+
+  it("records one expense when the same save arrives twice at once", async () => {
+    const s = await seed();
+    const payer = { memberId: s.joao, partnershipId: s.partnershipId };
+    const k = key();
+    const [a, b] = await Promise.all([
+      recordExpense(app.db, boss, payer, expense(s, { idempotencyKey: k })),
+      recordExpense(app.db, boss, payer, expense(s, { idempotencyKey: k })),
+    ]);
+    expect(a.id).toBe(b.id);
+    const rows = await t.db
+      .select()
+      .from(entries)
+      .where(eq(entries.authorId, s.joao));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("refuses the same key with a different expense, writing nothing", async () => {
+    const s = await seed();
+    const payer = { memberId: s.joao, partnershipId: s.partnershipId };
+    const k = key();
+    await recordExpense(app.db, boss, payer, expense(s, { idempotencyKey: k }));
+    expect(
+      await refusal(
+        recordExpense(
+          app.db,
+          boss,
+          payer,
+          expense(s, { idempotencyKey: k, amount: 16000n }),
+        ),
+      ),
+    ).toBe("key-reused");
+    const rows = await t.db
+      .select()
+      .from(entries)
+      .where(eq(entries.authorId, s.joao));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("matches the description as it was stored, trimmed", async () => {
+    const s = await seed();
+    const payer = { memberId: s.joao, partnershipId: s.partnershipId };
+    const k = key();
+    const first = await recordExpense(
+      app.db,
+      boss,
+      payer,
+      expense(s, { idempotencyKey: k, description: "   " }),
+    );
+    const again = await recordExpense(
+      app.db,
+      boss,
+      payer,
+      expense(s, { idempotencyKey: k, description: undefined }),
+    );
+    expect(again.id).toBe(first.id);
+  });
+
+  it("keeps each payer's keys apart", async () => {
+    const s = await seed();
+    const k = key();
+    const joao = await recordExpense(
+      app.db,
+      boss,
+      { memberId: s.joao, partnershipId: s.partnershipId },
+      expense(s, { idempotencyKey: k }),
+    );
+    const other = await recordExpense(
+      app.db,
+      boss,
+      { memberId: s.maria, partnershipId: s.partnershipId },
+      expense(s, { idempotencyKey: k }),
+    );
+    expect(other.id).not.toBe(joao.id);
+  });
+
+  it("still records two equal expenses without a key", async () => {
+    const s = await seed();
+    const payer = { memberId: s.joao, partnershipId: s.partnershipId };
+    const a = await recordExpense(app.db, boss, payer, expense(s));
+    const b = await recordExpense(app.db, boss, payer, expense(s));
+    expect(a.id).not.toBe(b.id);
   });
 });

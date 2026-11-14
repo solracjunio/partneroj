@@ -73,13 +73,14 @@ describe("api", () => {
       categoryId: "c",
       occurredOn: "2026-11-09",
     };
-    expect(await api.recordExpense(body)).toEqual({
+    const key = "0196f3c2-7a10-7000-8000-000000000001";
+    expect(await api.recordExpense(body, key)).toEqual({
       ok: true,
       value: recorded,
     });
     expect(fetch).toHaveBeenCalledWith("/api/entries/expenses", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Idempotency-Key": key },
       body: JSON.stringify(body),
     });
   });

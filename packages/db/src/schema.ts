@@ -179,6 +179,11 @@ export const entries = pgTable(
     source: entrySource().notNull(),
     reversalOf: uuid().references((): AnyPgColumn => entries.id),
     reversalReason: text(),
+    /**
+     * Chosen by the phone for one draft and sent again when the save is
+     * retried, so a save whose answer was lost is not recorded twice.
+     */
+    idempotencyKey: uuid(),
     createdAt: createdAt(),
   },
   (t) => [
@@ -193,6 +198,12 @@ export const entries = pgTable(
         or (${t.reversalOf} is not null and ${t.amount} < 0)`,
     ),
     unique("entries_reversal_of_unique").on(t.reversalOf),
+    // Per author: one member's key never meets another's. Entries without
+    // a key (reversals, scripts) are null, and nulls never collide.
+    unique("entries_author_idempotency_key_unique").on(
+      t.authorId,
+      t.idempotencyKey,
+    ),
     check(
       "entries_reversal_reason_required",
       sql`${t.reversalOf} is null or (${t.reversalReason} is not null and trim(${t.reversalReason}) <> '')`,
