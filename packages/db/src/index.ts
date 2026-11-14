@@ -1,6 +1,11 @@
 // Postgres schema, client and migrations, shared by the API and the worker.
 export { createDatabase, type Database } from "./client.js";
 export {
+  projectBalances,
+  type PartnerBalanceRow,
+  type ProjectBalances,
+} from "./balances.js";
+export {
   acceptInvite,
   createInvite,
   INVITE_LIFETIME_HOURS,

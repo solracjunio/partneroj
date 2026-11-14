@@ -6,16 +6,15 @@ import {
   createReversal,
   DomainError,
   type DomainErrorCode,
-  type Entry as DomainEntry,
-  type LedgerEntry,
 } from "@partneroj/domain";
 import { and, eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import type { Database } from "./client.js";
 import type { Transaction } from "./jobs.js";
 import { recordEntryIn, type Entry } from "./record-entry.js";
+import { loadLedger } from "./ledger.js";
 import { isUniqueViolation } from "./pg-errors.js";
-import { entries, projects, weights } from "./schema.js";
+import { entries, projects } from "./schema.js";
 
 /** Why a reversal was refused; the API turns each into a response. */
 export type ReversalRefusal = DomainErrorCode | "not-author";
@@ -29,76 +28,6 @@ export class ReversalRefused extends Error {
 
 /** The longest reason, the same as an expense's description. */
 export const MAX_REASON_LENGTH = 200;
-
-/**
- * A row as the domain sees it. Which sides each type has is the domain's
- * rule, checked when the entry was recorded: a row without them is a bug,
- * not a refusal.
- */
-function toLedgerEntry(row: Entry): LedgerEntry {
-  const side = (member: string | null, account: string | null) => {
-    if (member !== null) return { partner: member };
-    if (account !== null) return { account };
-    throw new Error(`entry ${row.id} has no party on a side it needs`);
-  };
-  const need = (value: string | null) => {
-    if (value === null) throw new Error(`entry ${row.id} misses a party`);
-    return value;
-  };
-  const amount = row.amount;
-  let entry: DomainEntry;
-  switch (row.type) {
-    case "expense":
-      entry = {
-        type: "expense",
-        amount,
-        from: side(row.fromMemberId, row.fromAccountId),
-      };
-      break;
-    case "income":
-      entry = {
-        type: "income",
-        amount,
-        to: side(row.toMemberId, row.toAccountId),
-      };
-      break;
-    case "in-kind":
-      entry = { type: "in-kind", amount, partner: need(row.fromMemberId) };
-      break;
-    case "contribution":
-    case "opening":
-      entry = {
-        type: row.type,
-        amount,
-        partner: need(row.fromMemberId),
-        account: need(row.toAccountId),
-      };
-      break;
-    case "withdrawal":
-    case "reimbursement":
-      entry = {
-        type: row.type,
-        amount,
-        account: need(row.fromAccountId),
-        partner: need(row.toMemberId),
-      };
-      break;
-    case "transfer":
-      entry = {
-        type: "transfer",
-        amount,
-        fromAccount: need(row.fromAccountId),
-        toAccount: need(row.toAccountId),
-      };
-      break;
-  }
-  return {
-    ...entry,
-    id: row.id,
-    ...(row.reversalOf === null ? {} : { reversalOf: row.reversalOf }),
-    ...(row.reversalReason === null ? {} : { reason: row.reversalReason }),
-  };
-}
 
 /**
  * Undoes an entry of the actor's partnership, with its feed row, audit and
@@ -154,17 +83,9 @@ async function reverseIn(
   // The project's whole ledger: the domain looks for an earlier reversal
   // and simulates the balances with this one. The partners' version has
   // one project and no shared account, so the project is all it needs.
-  const ledger = await tx
-    .select()
-    .from(entries)
-    .where(eq(entries.projectId, original.projectId))
-    .orderBy(entries.id);
-  const projectWeights = await tx
-    .select({ partnerId: weights.memberId, weight: weights.weight })
-    .from(weights)
-    .where(eq(weights.projectId, original.projectId));
+  const ledger = await loadLedger(tx, original.projectId);
 
-  const reversal = createReversal(ledger.map(toLedgerEntry), projectWeights, {
+  const reversal = createReversal(ledger.entries, ledger.weights, {
     // The database gives the real id (uuidv7); the domain only needs one
     // that no entry has.
     id: "new",
