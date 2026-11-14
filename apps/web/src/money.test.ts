@@ -63,17 +63,8 @@ describe("parseReaisToCents", () => {
   });
 });
 
+// The examples are in packages/contracts, with the function.
 describe("formatCents", () => {
-  it.each([
-    ["1", "0,01"],
-    ["99", "0,99"],
-    ["1250", "12,50"],
-    ["125000", "1.250,00"],
-    ["999999999999", "9.999.999.999,99"],
-  ])("shows %s cents as %j", (cents, text) => {
-    expect(formatCents(cents)).toBe(text);
-  });
-
   it("reads back everything it shows", () => {
     fc.assert(
       fc.property(fc.bigInt({ min: 1n, max: 999_999_999_999n }), (n) => {

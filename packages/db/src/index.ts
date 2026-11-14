@@ -35,9 +35,11 @@ export type { PgBoss } from "pg-boss";
 export {
   installJobQueue,
   queueEntryNotification,
+  queueOptions,
   queues,
   startJobQueue,
   type EntryNotification,
+  type PushDelivery,
   type Transaction,
 } from "./jobs.js";
 export {
@@ -85,6 +87,13 @@ export {
   type SessionMember,
 } from "./sessions.js";
 export { hashToken, newToken } from "./tokens.js";
+export {
+  deliveryTarget,
+  entryNotice,
+  forgetSubscription,
+  type DeliveryTarget,
+  type EntryNotice,
+} from "./push-notices.js";
 export {
   removeSubscription,
   saveSubscription,

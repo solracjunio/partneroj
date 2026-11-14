@@ -7,12 +7,76 @@ import { fromDrizzle, PgBoss } from "pg-boss";
 import type { Database } from "./client.js";
 
 export const queues = {
-  /** Sends a push notification about a new entry to the other partners. */
+  /**
+   * A new entry: one job per entry, in the entry's transaction. The worker
+   * turns it into one push-delivery per phone to tell.
+   */
   entryNotification: "entry-notification",
+  /**
+   * One push to one phone. Apart from the entry's job, so a failure is
+   * retried for that phone alone, and the others are not told twice.
+   */
+  pushDelivery: "push-delivery",
 } as const;
+
+type QueueName = (typeof queues)[keyof typeof queues];
+
+/**
+ * Retries with exponential backoff (pg-boss: about retryDelay * 2^n,
+ * with jitter, capped at retryDelayMax). A fan-out only reads and writes
+ * this database, so it gives up in about a minute. A push may wait out a
+ * push service's outage: up to an hour or so, and never past the
+ * notice's deadline, which the worker checks (24 h, plan section 4).
+ * expireInSeconds: a send takes seconds; one stuck longer is retried.
+ */
+export const queueOptions: Record<
+  QueueName,
+  {
+    retryLimit: number;
+    retryDelay: number;
+    retryBackoff: boolean;
+    retryDelayMax: number;
+    expireInSeconds: number;
+  }
+> = {
+  [queues.entryNotification]: {
+    retryLimit: 5,
+    retryDelay: 1,
+    retryBackoff: true,
+    retryDelayMax: 30,
+    expireInSeconds: 60,
+  },
+  [queues.pushDelivery]: {
+    retryLimit: 10,
+    retryDelay: 2,
+    retryBackoff: true,
+    retryDelayMax: 900,
+    expireInSeconds: 60,
+  },
+};
 
 export interface EntryNotification {
   entryId: string;
+}
+
+export interface PushDelivery {
+  subscriptionId: string;
+  /** The PushMessage, as JSON: what the phone shows. */
+  payload: string;
+  /** ISO time after which the push is dropped instead of sent. */
+  deadline: string;
+}
+
+/**
+ * Creates each queue, or gives one that exists its current options:
+ * createQueue leaves an existing queue as it was, so a queue created by
+ * an older deploy would keep pg-boss's defaults without updateQueue.
+ */
+async function setUpQueues(boss: PgBoss): Promise<void> {
+  for (const name of Object.values(queues)) {
+    await boss.createQueue(name, queueOptions[name]);
+    await boss.updateQueue(name, queueOptions[name]);
+  }
 }
 
 /** The `tx` that db.transaction() hands to its callback. */
@@ -36,7 +100,7 @@ export async function installJobQueue(connectionString: string): Promise<void> {
   });
   boss.on("error", (error) => console.error("pg-boss", error));
   await boss.start();
-  for (const name of Object.values(queues)) await boss.createQueue(name);
+  await setUpQueues(boss);
   await boss.stop({ graceful: false });
 
   const db = new pg.Client({ connectionString });
@@ -99,7 +163,7 @@ export async function startJobQueue(
   // An EventEmitter without an "error" listener crashes the process.
   boss.on("error", (error) => console.error("pg-boss", error));
   await boss.start();
-  for (const name of Object.values(queues)) await boss.createQueue(name);
+  await setUpQueues(boss);
   return boss;
 }
 

@@ -1,12 +1,27 @@
 // Device sessions (plan section 6): long-lived, renewed on each use. A
 // session that goes unused for SESSION_IDLE_DAYS ends on its own; one that
 // is used keeps going, so in practice nobody has to enter again.
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, type SQL, sql } from "drizzle-orm";
 import type { Database } from "./client.js";
 import { auditLog, members, sessions } from "./schema.js";
 import { hashToken } from "./tokens.js";
 
 export const SESSION_IDLE_DAYS = 180;
+
+/**
+ * A session that still lets its phone in: not revoked, and used within
+ * SESSION_IDLE_DAYS. The same test for signing in and for sending a push,
+ * so a phone that can no longer enter gets no notifications either.
+ */
+export function liveSession(): SQL {
+  return and(
+    isNull(sessions.revokedAt),
+    gt(
+      sessions.lastUsedAt,
+      sql`now() - make_interval(days => ${SESSION_IDLE_DAYS})`,
+    ),
+  )!;
+}
 
 /** Who is behind a request. */
 export interface SessionMember {
@@ -34,11 +49,7 @@ export async function findSession(
       and(
         eq(sessions.refreshTokenHash, hashToken(token)),
         eq(members.id, sessions.memberId),
-        isNull(sessions.revokedAt),
-        gt(
-          sessions.lastUsedAt,
-          sql`now() - make_interval(days => ${SESSION_IDLE_DAYS})`,
-        ),
+        liveSession(),
       ),
     )
     .returning({

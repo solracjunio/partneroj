@@ -425,6 +425,26 @@ grep -q '^VAPID_PUBLIC_KEY=' infra/production/.env || \
 
 **As duas chaves vão para o gerenciador de senhas**, como o resto do `.env`. Se o servidor for perdido, elas precisam voltar iguais.
 
+## Avisos: conferir se estão saindo
+
+O caminho de um aviso tem duas filas do pg-boss. O `entry-notification` é gravado na mesma transação do lançamento. O worker o transforma num `push-delivery` **por celular**, e cada um é enviado e repetido sozinho. O worker escreve uma linha por job, só com ids e resultado, nunca nomes ou valores:
+
+```sh
+ssh partneroj 'cd ~/partneroj && docker compose -f infra/production/compose.yml logs --since 1h worker'
+```
+
+| Resultado | Quer dizer |
+|---|---|
+| `entry-notification …: N to send` | N celulares a avisar (0: ninguém mais tem os avisos ligados, ou o lançamento tem mais de 24 h) |
+| `push-delivery …: sent` | o serviço de push (Google, Mozilla…) aceitou; dali até o celular é com ele |
+| `gone` | o serviço não conhece mais a inscrição (404/410); ela foi apagada, e o sócio precisa tocar em "Ativar avisos" de novo |
+| `refused` | outro erro 4xx, que se repetiria (chave VAPID diferente da inscrição, por exemplo); não é tentado de novo |
+| `expired` | passou das 24 h sem conseguir enviar |
+| `no-target` | a sessão daquele celular foi revogada ou expirou, ou o aviso foi desligado |
+| `unsafe` | endereço fora dos serviços de push conhecidos; nunca é chamado |
+
+Um erro 429 ou 5xx do serviço de push, ou uma falha de rede, aparece como erro do job, e o pg-boss tenta de novo com espera crescente (até cerca de uma hora, nunca depois das 24 h).
+
 ## Trocar a senha da aplicação
 
 Mudar `APP_DB_PASSWORD` no `.env` do servidor e fazer o deploy de novo. O `migrate` aplica a senha nova ao `partneroj_api` antes de a API subir.

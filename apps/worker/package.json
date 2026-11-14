@@ -11,6 +11,13 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@types/node": "^26.6.6"
+    "@types/node": "^26.6.6",
+    "@types/web-push": "3.6.4",
+    "drizzle-orm": "0.45.4"
+  },
+  "dependencies": {
+    "@partneroj/contracts": "workspace:*",
+    "@partneroj/db": "workspace:*",
+    "web-push": "3.6.7"
   }
 }
