@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ExpenseForm } from "./ExpenseForm";
 import { localDate } from "./expenseForm";
+import { type Answer, fakeServer, later } from "./testing";
 
 // The contract checks ids as uuids before anything is sent.
 const ids = {
@@ -37,59 +38,29 @@ const recorded = (amountCents = "1250"): RecordedExpense => ({
   occurredOn: today,
 });
 
-/** What the fake server answers: a status and body, no answer, or later. */
-type Answer =
-  | { status: number; body?: unknown }
-  | "offline"
-  | Promise<{ status: number; body?: unknown } | "offline">;
-
-interface Sent {
-  url: string;
-  method: string;
-  headers: Headers;
-  body: unknown;
-}
+const routes = {
+  project: "GET /api/projects/current",
+  save: "POST /api/entries/expenses",
+  upload: `POST /api/entries/${ids.entry}/receipts`,
+};
 
 /**
- * Stands in for the API behind `fetch`, as the screen calls it through
- * api.ts: each request is kept, so a test checks what went over the wire.
- * Saves and uploads answer in the order queued, then succeed.
+ * The fake API (testing.ts) with this screen's routes: the project loads,
+ * saves and uploads succeed unless a test queues something else first.
  */
-function fakeServer(project: Answer = { status: 200, body: current }) {
-  const sent: Sent[] = [];
-  const saves: Answer[] = [];
-  const uploads: Answer[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (url: string, init: RequestInit = {}) => {
-      const method = init.method ?? "GET";
-      sent.push({
-        url,
-        method,
-        headers: new Headers(init.headers),
-        body: init.body,
-      });
-      let answer: Answer;
-      if (url === "/api/projects/current") answer = project;
-      else if (url === "/api/entries/expenses") {
-        answer = saves.shift() ?? { status: 201, body: recorded() };
-      } else if (url.endsWith("/receipts")) {
-        answer = uploads.shift() ?? { status: 201, body: { id: "r1" } };
-      } else throw new Error(`unexpected ${method} ${url}`);
-      const settled = await answer;
-      if (settled === "offline") throw new TypeError("Failed to fetch");
-      return new Response(
-        settled.body === undefined ? null : JSON.stringify(settled.body),
-        { status: settled.status },
-      );
-    }),
-  );
-  const saved = () => sent.filter((s) => s.url === "/api/entries/expenses");
+function expenseServer(project: Answer = { status: 200, body: current }) {
+  const server = fakeServer({
+    [routes.project]: project,
+    [routes.save]: { status: 201, body: recorded() },
+    [routes.upload]: { status: 201, body: { id: "r1" } },
+  });
+  const saved = () => server.sent(routes.save);
   return {
-    sent,
-    saves,
-    uploads,
+    nextSave: (...answers: Answer[]) => server.next(routes.save, ...answers),
+    nextUpload: (...answers: Answer[]) =>
+      server.next(routes.upload, ...answers),
     saved,
+    uploaded: () => server.sent(routes.upload),
     /** The Idempotency-Key of each save, in order. */
     keys: () => saved().map((s) => s.headers.get("Idempotency-Key")),
     /** The JSON body of each save, in order. */
@@ -126,7 +97,7 @@ const save = (user: ReturnType<typeof userEvent.setup>) =>
 
 describe("Fiz um gasto", () => {
   it("saves the expense in cents, today, with a key, and says so", async () => {
-    const server = fakeServer();
+    const server = expenseServer();
     const user = await open();
     expect(screen.getByText("Casa")).toBeTruthy();
     await fill(user);
@@ -150,7 +121,7 @@ describe("Fiz um gasto", () => {
   });
 
   it("shows what is missing and sends nothing", async () => {
-    const server = fakeServer();
+    const server = expenseServer();
     const user = await open();
     await save(user);
     expect(screen.getByText("Digite o valor, por exemplo 12,50.")).toBeTruthy();
@@ -162,7 +133,7 @@ describe("Fiz um gasto", () => {
   });
 
   it("marks the chosen category as pressed", async () => {
-    fakeServer();
+    expenseServer();
     const user = await open();
     const material = screen.getByRole("button", { name: "Material" });
     await user.click(material);
@@ -174,8 +145,8 @@ describe("Fiz um gasto", () => {
 
 describe("the save's key", () => {
   it("is the same when Salvar is tapped again after no answer", async () => {
-    const server = fakeServer();
-    server.saves.push("offline");
+    const server = expenseServer();
+    server.nextSave("offline");
     const user = await open();
     await fill(user);
     await save(user);
@@ -190,8 +161,8 @@ describe("the save's key", () => {
   });
 
   it("changes when the draft is edited after a failure", async () => {
-    const server = fakeServer();
-    server.saves.push("offline");
+    const server = expenseServer();
+    server.nextSave("offline");
     const user = await open();
     await fill(user);
     await save(user);
@@ -208,8 +179,8 @@ describe("the save's key", () => {
   });
 
   it("changes after a 409, so tapping again can save", async () => {
-    const server = fakeServer();
-    server.saves.push({ status: 409 });
+    const server = expenseServer();
+    server.nextSave({ status: 409 });
     const user = await open();
     await fill(user);
     await save(user);
@@ -226,7 +197,7 @@ describe("the save's key", () => {
   });
 
   it("is new for the next expense, which keeps the date", async () => {
-    const server = fakeServer();
+    const server = expenseServer();
     const user = await open();
     await fill(user);
     await save(user);
@@ -247,9 +218,9 @@ describe("the save's key", () => {
 });
 
 it("sends one save for two taps while the first is on its way", async () => {
-  const server = fakeServer();
-  let answer!: (value: { status: number; body: unknown }) => void;
-  server.saves.push(new Promise((resolve) => (answer = resolve)));
+  const server = expenseServer();
+  const answer = later<{ status: number; body: unknown }>();
+  server.nextSave(answer.promise);
   const user = await open();
   await fill(user);
   const form = screen.getByRole("button", { name: "Salvar" }).closest("form")!;
@@ -260,7 +231,7 @@ it("sends one save for two taps while the first is on its way", async () => {
     screen.getByRole<HTMLButtonElement>("button", { name: "Salvando…" })
       .disabled,
   ).toBe(true);
-  answer({ status: 201, body: recorded() });
+  answer.settle({ status: 201, body: recorded() });
   await screen.findByRole("heading", { name: "Gasto salvo." });
   expect(server.saved()).toHaveLength(1);
 });
@@ -273,8 +244,8 @@ describe.each([
   [500, "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo."],
 ])("a save answered %i", (status, text) => {
   it("says why, and the draft stays", async () => {
-    const server = fakeServer();
-    server.saves.push({ status });
+    const server = expenseServer();
+    server.nextSave({ status });
     const user = await open();
     await fill(user);
     await save(user);
@@ -290,7 +261,7 @@ describe("the receipt", () => {
     new File(["%PDF-1.7"], "nota.pdf", { type: "application/pdf" });
 
   it("goes up after the expense is saved, to that expense", async () => {
-    const server = fakeServer();
+    const server = expenseServer();
     const user = await open();
     await fill(user);
     await user.upload(screen.getByLabelText("Escolher arquivo"), pdf());
@@ -298,15 +269,15 @@ describe("the receipt", () => {
     await save(user);
 
     await screen.findByText("Foto do comprovante enviada.");
-    const upload = server.sent.find((s) => s.url.endsWith("/receipts"))!;
-    expect(upload.url).toBe(`/api/entries/${ids.entry}/receipts`);
-    expect(upload.headers.get("Content-Type")).toBe("application/pdf");
-    expect((upload.body as File).name).toBe("nota.pdf");
+    // To the expense just saved: the route carries its id.
+    const [upload] = server.uploaded();
+    expect(upload!.headers.get("Content-Type")).toBe("application/pdf");
+    expect((upload!.body as File).name).toBe("nota.pdf");
   });
 
   it("can be sent again when the upload fails, the expense saved", async () => {
-    const server = fakeServer();
-    server.uploads.push("offline");
+    const server = expenseServer();
+    server.nextUpload("offline");
     const user = await open();
     await fill(user);
     await user.upload(screen.getByLabelText("Escolher arquivo"), pdf());
@@ -323,7 +294,7 @@ describe("the receipt", () => {
   });
 
   it("refuses a file that is not a photo or PDF, before saving", async () => {
-    fakeServer();
+    expenseServer();
     const user = userEvent.setup({ applyAccept: false });
     render(<ExpenseForm />);
     await screen.findByRole("heading", { name: "Fiz um gasto" });
@@ -338,7 +309,7 @@ describe("the receipt", () => {
   });
 
   it("can still be sent from 'Gasto salvo.' when forgotten", async () => {
-    const server = fakeServer();
+    const server = expenseServer();
     const user = await open();
     await fill(user);
     await save(user);
@@ -346,8 +317,8 @@ describe("the receipt", () => {
     await user.upload(screen.getByLabelText("Escolher arquivo"), pdf());
 
     await screen.findByText("Foto do comprovante enviada.");
-    const upload = server.sent.find((s) => s.url.endsWith("/receipts"))!;
-    expect(upload.url).toBe(`/api/entries/${ids.entry}/receipts`);
+    // To the expense just saved: the route carries its id.
+    expect(server.uploaded()).toHaveLength(1);
   });
 });
 
@@ -361,7 +332,7 @@ describe.each([
   [{ status: 500 }, "Algo deu errado. Tente de novo daqui a pouco."],
 ])("no project to record into (%o)", (answer, text) => {
   it("says why instead of the form", async () => {
-    fakeServer(answer);
+    expenseServer(answer);
     render(<ExpenseForm />);
     expect((await screen.findByRole("alert")).textContent).toBe(text);
     expect(screen.queryByLabelText("Valor (R$)")).toBeNull();

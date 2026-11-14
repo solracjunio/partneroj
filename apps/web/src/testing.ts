@@ -1,0 +1,73 @@
+// Test helper for the screen tests: a fake API behind `fetch`, as the
+// screens call it through api.ts. Never imported by the app itself.
+import { vi } from "vitest";
+
+/** How the fake server answers a request: a status and body, or no answer. */
+export type Answer =
+  | { status: number; body?: unknown }
+  | "offline"
+  | Promise<{ status: number; body?: unknown } | "offline">;
+
+/** A request as it went over the wire. */
+export interface Sent {
+  route: string;
+  headers: Headers;
+  body: unknown;
+}
+
+/**
+ * Stubs `fetch` with a server that answers each route, "METHOD /api/path",
+ * with its usual answer. `next` queues one-off answers for a route, taken
+ * in order before the usual one: a failure, then success. Every request is
+ * kept, so a test checks what the screen sent. A route not listed throws,
+ * so a screen calling something unexpected fails the test.
+ *
+ * Example: fakeServer({ "GET /api/me": { status: 200, body: me } }).
+ */
+export function fakeServer(routes: Record<string, Answer>) {
+  const requests: Sent[] = [];
+  const queued = new Map<string, Answer[]>();
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init: RequestInit = {}) => {
+      const route = `${init.method ?? "GET"} ${url}`;
+      requests.push({
+        route,
+        headers: new Headers(init.headers),
+        body: init.body,
+      });
+      const answer = queued.get(route)?.shift() ?? routes[route];
+      if (answer === undefined) throw new Error(`unexpected ${route}`);
+      const settled = await answer;
+      if (settled === "offline") throw new TypeError("Failed to fetch");
+      return new Response(
+        settled.body === undefined ? null : JSON.stringify(settled.body),
+        { status: settled.status },
+      );
+    }),
+  );
+
+  return {
+    /** One-off answers for a route, before its usual one. */
+    next(route: string, ...answers: Answer[]) {
+      queued.set(route, [...(queued.get(route) ?? []), ...answers]);
+    },
+    /** The requests to a route, in order; every request without one. */
+    sent(route?: string): Sent[] {
+      return route === undefined
+        ? requests
+        : requests.filter((r) => r.route === route);
+    },
+  };
+}
+
+/** A promise the test settles when it wants: an answer still on its way. */
+export function later<T>(): {
+  promise: Promise<T>;
+  settle: (value: T) => void;
+} {
+  let settle!: (value: T) => void;
+  const promise = new Promise<T>((resolve) => (settle = resolve));
+  return { promise, settle };
+}

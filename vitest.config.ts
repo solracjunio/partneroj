@@ -14,8 +14,9 @@ export default defineConfig({
       include: ["{packages,apps}/*/src/**/*.{ts,tsx}"],
       exclude: [
         "**/*.test.{ts,tsx}",
-        // The test helper itself (Testcontainers), never run in production.
-        "packages/db/src/testing.ts",
+        // Test helpers (Testcontainers, the web's fake API), never run in
+        // production.
+        "{packages,apps}/*/src/testing.ts",
         // Entry points: they only read the environment (or find #root),
         // call code that has its own tests and handle the process exit.
         // Keep them that thin; logic that grows here belongs in a module
