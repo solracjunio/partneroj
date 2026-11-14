@@ -16,6 +16,15 @@ export default defineConfig({
         "**/*.test.{ts,tsx}",
         // The test helper itself (Testcontainers), never run in production.
         "packages/db/src/testing.ts",
+        // Entry points: they only read the environment (or find #root),
+        // call code that has its own tests and handle the process exit.
+        // Keep them that thin; logic that grows here belongs in a module
+        // with tests, as admin-cli's commands did (admin-commands.ts).
+        // The Nest *.module.ts files stay counted: they wire the API.
+        "apps/api/src/main.ts",
+        "apps/worker/src/main.ts",
+        "apps/web/src/main.tsx",
+        "packages/db/src/*-cli.ts",
       ],
       reporter: ["text-summary", "html", "json-summary"],
       reportsDirectory: "coverage",
