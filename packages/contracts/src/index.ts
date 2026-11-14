@@ -1,4 +1,5 @@
 // Zod schemas and types shared by the API and the web app.
+export type { PartnerBalance, ProjectBalances } from "./balances.js";
 export {
   amountCents,
   idempotencyKey,
