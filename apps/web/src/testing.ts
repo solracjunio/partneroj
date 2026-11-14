@@ -102,6 +102,18 @@ export function stubDisplayMode({ standalone }: { standalone: boolean }) {
   }));
 }
 
+/** User agents, as each browser sends them. */
+export const desktopChrome =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36";
+export const androidChrome =
+  "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36";
+export const androidSamsung =
+  "Mozilla/5.0 (Linux; Android 14; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/28.0 Chrome/130.0.0.0 Mobile Safari/537.36";
+export const androidFirefox =
+  "Mozilla/5.0 (Android 14; Mobile; rv:145.0) Gecko/145.0 Firefox/145.0";
+export const androidEdge =
+  "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36 EdgA/142.0.0.0";
+
 /** The subscription the fake browser hands out, as toJSON() gives it. */
 export const browserSubscription = {
   endpoint: "https://fcm.googleapis.com/fcm/send/web-test",
@@ -119,10 +131,16 @@ export function fakePushBrowser({
   permission = "default",
   answer = "granted",
   subscribed = false,
+  userAgent = desktopChrome,
+  brave = false,
 }: {
   permission?: NotificationPermission;
   answer?: NotificationPermission;
   subscribed?: boolean;
+  /** The browser's user agent: Android or not, and which browser. */
+  userAgent?: string;
+  /** Brave says Chrome in its user agent, and has navigator.brave. */
+  brave?: boolean;
 } = {}) {
   let current = permission;
   const subscription = {
@@ -159,6 +177,8 @@ export function fakePushBrowser({
   vi.stubGlobal("PushManager", function PushManager() {});
   vi.stubGlobal("navigator", {
     ...navigator,
+    userAgent,
+    ...(brave ? { brave: {} } : {}),
     serviceWorker: {
       getRegistration: () => Promise.resolve(registration),
       ready: Promise.resolve(registration),

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { api } from "./api";
-import { readPush, turnOffPush, turnOnPush } from "./push";
+import { androidBrowser, readPush, turnOffPush, turnOnPush } from "./push";
 
 type View =
   | { kind: "hidden" }
@@ -93,6 +93,7 @@ export function NotificationsCard() {
     return (
       <div className="push-on">
         <p className="muted">Avisos ligados neste celular.</p>
+        <BatteryTip />
         {problem}
         <button
           type="button"
@@ -120,6 +121,51 @@ export function NotificationsCard() {
         onClick={() => void on()}
       >
         Ativar avisos
+      </button>
+    </div>
+  );
+}
+
+const TIP_SEEN = "partneroj.battery-tip-seen";
+
+/** Whether "Já fiz isso" was tapped here; false when storage refuses. */
+function tipSeen(): boolean {
+  try {
+    return localStorage.getItem(TIP_SEEN) === "yes";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Android only: the browser's battery setting decides whether a push
+ * comes at once or minutes later, and a web page cannot read it. So the
+ * tip stays until "Já fiz isso"; a phone that keeps nothing (a private
+ * window) just shows it again next time.
+ */
+function BatteryTip() {
+  const [browser] = useState(androidBrowser);
+  const [seen, setSeen] = useState(tipSeen);
+  if (browser === null || seen) return null;
+
+  function done() {
+    setSeen(true);
+    try {
+      localStorage.setItem(TIP_SEEN, "yes");
+    } catch {
+      // Not kept: the tip comes back next time, which is harmless.
+    }
+  }
+
+  return (
+    <div className="notice">
+      <p>
+        <strong>Para os avisos chegarem na hora</strong>, mesmo com a tela
+        desligada: em Configurações → Apps → {browser} → Bateria, escolha{" "}
+        <strong>Sem restrições</strong>.
+      </p>
+      <button type="button" className="primary" onClick={done}>
+        Já fiz isso
       </button>
     </div>
   );

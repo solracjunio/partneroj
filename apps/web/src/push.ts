@@ -100,3 +100,21 @@ export async function turnOffPush(): Promise<"off" | "failed"> {
   await subscription?.unsubscribe();
   return "off";
 }
+
+/**
+ * The browser's name as Android's app list shows it, on Android only;
+ * null elsewhere. Android's default battery setting ("Otimizada") can
+ * hold a push back for minutes even with Urgency high: the browser has
+ * to be "Sem restrições" (seen on 2026-11-14, 6 minutes against 1 s).
+ * Brave sends Chrome's user agent, and has navigator.brave.
+ */
+export function androidBrowser(): string | null {
+  const ua = navigator.userAgent;
+  if (!/Android/.test(ua)) return null;
+  if (/SamsungBrowser/.test(ua)) return "Samsung Internet";
+  if (/Firefox/.test(ua)) return "Firefox";
+  if (/EdgA/.test(ua)) return "Edge";
+  if ("brave" in navigator) return "Brave";
+  if (/Chrome/.test(ua)) return "Chrome";
+  return "o navegador";
+}

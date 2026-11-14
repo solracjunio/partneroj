@@ -6,6 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NotificationsCard } from "./NotificationsCard";
 import { keyBytes } from "./push";
 import {
+  androidChrome,
+  androidEdge,
+  androidFirefox,
+  androidSamsung,
   type Answer,
   browserSubscription,
   fakePushBrowser,
@@ -15,6 +19,7 @@ import {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 // 65 bytes, as a real P-256 public key, in base64url.
@@ -176,6 +181,120 @@ describe("the notifications card", () => {
     ).toBeTruthy();
     expect(await isOn()).toBeTruthy();
     expect(browser.subscribed).toBe(true);
+  });
+});
+
+describe("the battery tip, on Android", () => {
+  // The whole paragraph: the opening words are in a <strong> of their own.
+  const tip = () =>
+    screen.queryByText(/Para os avisos chegarem na hora/)?.closest("p") ?? null;
+
+  it("shows once on, naming the browser to set to Sem restrições", async () => {
+    fakePushBrowser({
+      permission: "granted",
+      subscribed: true,
+      userAgent: androidChrome,
+    });
+    server();
+    render(<NotificationsCard />);
+
+    expect(await isOn()).toBeTruthy();
+    expect(tip()?.textContent).toContain("Chrome");
+    expect(screen.getByText(/Sem restrições/)).toBeTruthy();
+  });
+
+  it("shows right after turning notifications on", async () => {
+    fakePushBrowser({ userAgent: androidChrome });
+    server();
+    render(<NotificationsCard />);
+    expect(tip()).toBeNull();
+
+    await userEvent.click(await turnOn());
+
+    expect(await isOn()).toBeTruthy();
+    expect(tip()).not.toBeNull();
+  });
+
+  it.each([
+    ["Samsung Internet", androidSamsung, false],
+    ["Firefox", androidFirefox, false],
+    ["Edge", androidEdge, false],
+    ["Brave", androidChrome, true],
+  ])("names %s", async (name, userAgent, brave) => {
+    fakePushBrowser({
+      permission: "granted",
+      subscribed: true,
+      userAgent,
+      brave,
+    });
+    server();
+    render(<NotificationsCard />);
+
+    expect(await isOn()).toBeTruthy();
+    expect(tip()?.textContent).toContain(`Apps → ${name} → Bateria`);
+  });
+
+  it("is not shown off Android: there is no such setting", async () => {
+    fakePushBrowser({ permission: "granted", subscribed: true });
+    server();
+    render(<NotificationsCard />);
+
+    expect(await isOn()).toBeTruthy();
+    expect(tip()).toBeNull();
+  });
+
+  it("is not shown while notifications are off", async () => {
+    fakePushBrowser({ userAgent: androidChrome });
+    server();
+    render(<NotificationsCard />);
+
+    expect(await turnOn()).toBeTruthy();
+    expect(tip()).toBeNull();
+  });
+
+  it("goes away with Já fiz isso, and stays away the next time", async () => {
+    fakePushBrowser({
+      permission: "granted",
+      subscribed: true,
+      userAgent: androidChrome,
+    });
+    server();
+    const first = render(<NotificationsCard />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Já fiz isso" }),
+    );
+    expect(tip()).toBeNull();
+    first.unmount();
+
+    render(<NotificationsCard />);
+
+    expect(await isOn()).toBeTruthy();
+    expect(tip()).toBeNull();
+  });
+
+  it("still shows, and works, where the browser keeps nothing", async () => {
+    // A private window can refuse storage: the tip shows, and the tap
+    // still hides it for now.
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    fakePushBrowser({
+      permission: "granted",
+      subscribed: true,
+      userAgent: androidChrome,
+    });
+    server();
+    render(<NotificationsCard />);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Já fiz isso" }),
+    );
+
+    expect(tip()).toBeNull();
+    vi.restoreAllMocks();
   });
 });
 
