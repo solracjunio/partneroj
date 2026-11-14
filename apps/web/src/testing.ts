@@ -101,3 +101,77 @@ export function stubDisplayMode({ standalone }: { standalone: boolean }) {
     media: query,
   }));
 }
+
+/** The subscription the fake browser hands out, as toJSON() gives it. */
+export const browserSubscription = {
+  endpoint: "https://fcm.googleapis.com/fcm/send/web-test",
+  expirationTime: null,
+  keys: { p256dh: "B".repeat(87), auth: "a".repeat(22) },
+};
+
+/**
+ * jsdom has no Web Push: no Notification, no PushManager and no service
+ * worker, which is what an unsupported browser looks like. This stubs a
+ * browser that has them. `permission` is the current one; `answer` is
+ * what the partner taps when asked. Unstubbed with the rest.
+ */
+export function fakePushBrowser({
+  permission = "default",
+  answer = "granted",
+  subscribed = false,
+}: {
+  permission?: NotificationPermission;
+  answer?: NotificationPermission;
+  subscribed?: boolean;
+} = {}) {
+  let current = permission;
+  const subscription = {
+    endpoint: browserSubscription.endpoint,
+    toJSON: () => browserSubscription,
+    unsubscribe: vi.fn(() => {
+      held = null;
+      return Promise.resolve(true);
+    }),
+  };
+  let held: typeof subscription | null = subscribed ? subscription : null;
+  const pushManager = {
+    getSubscription: vi.fn(() => Promise.resolve(held)),
+    // Typed with the options, so a test can check what was asked for.
+    subscribe: vi.fn<
+      (options: PushSubscriptionOptionsInit) => Promise<typeof subscription>
+    >(() => {
+      held = subscription;
+      return Promise.resolve(subscription);
+    }),
+  };
+  const registration = { pushManager };
+  const requestPermission = vi.fn(() => {
+    current = answer;
+    return Promise.resolve(answer);
+  });
+
+  vi.stubGlobal("Notification", {
+    get permission() {
+      return current;
+    },
+    requestPermission,
+  });
+  vi.stubGlobal("PushManager", function PushManager() {});
+  vi.stubGlobal("navigator", {
+    ...navigator,
+    serviceWorker: {
+      getRegistration: () => Promise.resolve(registration),
+      ready: Promise.resolve(registration),
+    },
+  });
+
+  return {
+    requestPermission,
+    pushManager,
+    subscription,
+    /** Whether the browser holds a subscription now. */
+    get subscribed() {
+      return held !== null;
+    },
+  };
+}

@@ -104,6 +104,11 @@ button.secondary {
   margin: 0 0 16px;
 }
 
+/* "Avisos ligados": a line and a quiet button, not a card asking for a tap. */
+.push-on {
+  margin: 0 0 24px;
+}
+
 button.primary:disabled {
   opacity: 0.6;
   cursor: progress;

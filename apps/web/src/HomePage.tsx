@@ -11,6 +11,7 @@ import {
 } from "./balances";
 import { feedButtonLabel } from "./feed";
 import { InstallCard } from "./InstallCard";
+import { NotificationsCard } from "./NotificationsCard";
 import { formatCents } from "./money";
 import { navigate } from "./routes";
 
@@ -72,6 +73,7 @@ export function HomePage() {
           <BalanceSummary balances={balances} memberId={me.value.memberId} />
         )}
         <InstallCard />
+        <NotificationsCard />
       </section>
     );
   }

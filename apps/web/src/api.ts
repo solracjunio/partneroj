@@ -12,6 +12,7 @@ import type {
   RecordedReversal,
   ReverseEntryBody,
   UnreadCount,
+  VapidKey,
 } from "@partneroj/contracts";
 import { idempotencyKeyHeader } from "@partneroj/contracts";
 
@@ -159,6 +160,27 @@ export const api = {
         body: JSON.stringify(body),
       },
       json<RecordedReversal>,
+    ),
+
+  /** The key to subscribe with; 503 when the server sends no pushes. */
+  vapidKey: () => call("/notifications/vapid-key", {}, json<VapidKey>),
+
+  /** "Ativar avisos": this phone's subscription, for this session. */
+  saveSubscription: (subscription: PushSubscriptionJSON) =>
+    call(
+      "/notifications/subscription",
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(subscription),
+      },
+      () => Promise.resolve(undefined),
+    ),
+
+  /** "Desligar avisos": the server stops sending to this phone. */
+  removeSubscription: () =>
+    call("/notifications/subscription", { method: "DELETE" }, () =>
+      Promise.resolve(undefined),
     ),
 
   /** The receipt of an entry: the body is the file itself. */
