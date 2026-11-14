@@ -7,6 +7,7 @@ import type {
   Feed,
   MarkRead,
   NewExpense,
+  ProjectBalances,
   RecordedExpense,
   RecordedReversal,
   ReverseEntryBody,
@@ -128,6 +129,9 @@ export const api = {
 
   /** How many activities are new: the number on the home button. */
   unreadCount: () => call("/activities/unread", {}, json<UnreadCount>),
+
+  /** "Saldos": the current project's balances, for every member. */
+  balances: () => call("/projects/current/balances", {}, json<ProjectBalances>),
 
   /** The activities the screen showed are now read. */
   markRead: (body: MarkRead) =>

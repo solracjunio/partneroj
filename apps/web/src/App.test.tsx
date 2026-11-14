@@ -20,6 +20,7 @@ beforeEach(() => {
       },
     },
     "GET /api/activities/unread": { status: 200, body: { count: 0 } },
+    "GET /api/projects/current/balances": { status: 404 },
     "GET /api/activities": { status: 200, body: { items: [], next: null } },
   });
 });

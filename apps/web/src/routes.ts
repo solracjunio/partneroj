@@ -5,6 +5,7 @@ export type Route =
   | { page: "home" }
   | { page: "expense" }
   | { page: "feed" }
+  | { page: "balances" }
   | { page: "entry"; id: string }
   | { page: "invite"; token: string }
   | { page: "not-found" };
@@ -23,6 +24,9 @@ export function matchRoute(pathname: string): Route {
   }
   if (pathname === "/atividades" || pathname === "/atividades/") {
     return { page: "feed" };
+  }
+  if (pathname === "/saldos" || pathname === "/saldos/") {
+    return { page: "balances" };
   }
   const entry = entryPath.exec(pathname);
   if (entry) return { page: "entry", id: entry[1]!.toLowerCase() };
