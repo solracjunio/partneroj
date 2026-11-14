@@ -27,6 +27,14 @@ export const newExpense = z.object({
 
 export type NewExpense = z.infer<typeof newExpense>;
 
+/**
+ * The header with the phone's key for one draft: a save sent again with
+ * the same key returns the expense already recorded instead of a second.
+ * Optional, so a phone still on an older app keeps working.
+ */
+export const idempotencyKeyHeader = "Idempotency-Key";
+export const idempotencyKey = z.uuid();
+
 /** The recorded expense, as the API returns it. */
 export interface RecordedExpense {
   id: string;

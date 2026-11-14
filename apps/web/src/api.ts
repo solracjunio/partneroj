@@ -12,6 +12,7 @@ import type {
   ReverseEntryBody,
   UnreadCount,
 } from "@partneroj/contracts";
+import { idempotencyKeyHeader } from "@partneroj/contracts";
 
 export interface InvitePreview {
   memberName: string;
@@ -96,13 +97,20 @@ export const api = {
   /** The project to record into and the category buttons. */
   currentProject: () => call("/projects/current", {}, json<CurrentProject>),
 
-  /** "Fiz um gasto": who paid is the session, not the body. */
-  recordExpense: (body: NewExpense) =>
+  /**
+   * "Fiz um gasto": who paid is the session, not the body. The key is the
+   * draft's: sent again after a lost answer, the server returns the expense
+   * it already recorded instead of a second one.
+   */
+  recordExpense: (body: NewExpense, key: string) =>
     call(
       "/entries/expenses",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          [idempotencyKeyHeader]: key,
+        },
         body: JSON.stringify(body),
       },
       json<RecordedExpense>,

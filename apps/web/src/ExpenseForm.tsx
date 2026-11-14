@@ -37,6 +37,8 @@ const sendProblemText: Record<Failure, string> = {
   refused: "Seu acesso não permite registrar gastos neste projeto.",
   unsupported: "O servidor não aceitou o gasto. Toque em Salvar de novo.",
   unusable: "Este projeto não aceita mais gastos. Volte ao início.",
+  // The key was already used for another expense: save makes a new one,
+  // so tapping again works.
   conflict: "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo.",
   error: "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo.",
 };
@@ -84,9 +86,15 @@ function Form({ current }: { current: CurrentProject }) {
   );
   const [preparing, setPreparing] = useState(false);
   const [upload, setUpload] = useState<Upload>("none");
+  // One key per draft, kept while "Salvar" is tapped again after a lost
+  // answer, so the server records it once. Any edit makes a new one: the
+  // server must never answer a corrected draft with the expense before.
+  const [saveKey, setSaveKey] = useState(() => crypto.randomUUID());
 
-  const change = (fields: Partial<ExpenseDraft>) =>
+  const change = (fields: Partial<ExpenseDraft>) => {
     setDraft((before) => ({ ...before, ...fields }));
+    setSaveKey(crypto.randomUUID());
+  };
   const has = (problem: DraftProblem) => problems.includes(problem);
 
   async function choose(
@@ -136,9 +144,11 @@ function Form({ current }: { current: CurrentProject }) {
     setProblems([]);
     setSendProblem(null);
     setSaving(true);
-    const result = await api.recordExpense(read.body);
+    const result = await api.recordExpense(read.body, saveKey);
     setSaving(false);
     if (!result.ok) {
+      // 409: this key holds another expense, so it can't save this one.
+      if (result.failure === "conflict") setSaveKey(crypto.randomUUID());
       setSendProblem(result.failure);
       return;
     }
@@ -196,6 +206,7 @@ function Form({ current }: { current: CurrentProject }) {
             onClick={() => {
               // The same day is the likeliest for the next receipt too.
               setDraft(emptyDraft(draft.occurredOn));
+              setSaveKey(crypto.randomUUID());
               setSaved(null);
               setReceipt(null);
               setReceiptProblem(null);
