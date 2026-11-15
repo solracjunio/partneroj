@@ -8,7 +8,12 @@ import {
   queues,
 } from "@partneroj/db";
 
-import { deliver, type PushSender } from "./deliver.js";
+import {
+  deliver,
+  type Delivery,
+  type PushSender,
+  RetryablePushError,
+} from "./deliver.js";
 import { fanOut } from "./fan-out.js";
 
 /**
@@ -29,6 +34,48 @@ export interface WorkerDeps {
   log: (line: string) => void;
 }
 
+/** "sent (201)", or the result alone when no push service answered. */
+function describe(delivery: Delivery): string {
+  return delivery.status === undefined
+    ? delivery.result
+    : `${delivery.result} (${delivery.status})`;
+}
+
+/**
+ * Why a try failed, for the log: the push service's status, or the
+ * error's code ("ECONNRESET"). Never the message: a network error's
+ * message can hold the endpoint, a secret URL that lets anyone push to
+ * that phone.
+ */
+export function failureOf(error: unknown): string {
+  if (error instanceof RetryablePushError) {
+    return `push service answered ${error.status}`;
+  }
+  const code = (error as { code?: unknown } | null)?.code;
+  if (typeof code === "string") return code;
+  return error instanceof Error ? error.name : "unknown error";
+}
+
+/**
+ * Runs a job, logging a failed try before pg-boss retries it: without
+ * this line a retry is invisible, only its final result shows.
+ */
+async function logged<T>(
+  log: (line: string) => void,
+  queue: string,
+  job: { id: string; retryCount: number },
+  run: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    log(
+      `${queue} ${job.id}: try ${job.retryCount + 1} failed: ${failureOf(error)}`,
+    );
+    throw error;
+  }
+}
+
 export async function startWorker(deps: WorkerDeps): Promise<void> {
   const { db, boss, send, log } = deps;
   const options = { pollingIntervalSeconds: POLLING_SECONDS };
@@ -38,7 +85,9 @@ export async function startWorker(deps: WorkerDeps): Promise<void> {
     options,
     async (jobs) => {
       for (const job of jobs) {
-        const count = await fanOut(db, boss, job.data.entryId, new Date());
+        const count = await logged(log, queues.entryNotification, job, () =>
+          fanOut(db, boss, job.data.entryId, new Date()),
+        );
         log(`${queues.entryNotification} ${job.id}: ${count} to send`);
       }
     },
@@ -48,8 +97,10 @@ export async function startWorker(deps: WorkerDeps): Promise<void> {
   // pg-boss runs the job again later, with the queue's backoff.
   await boss.work<PushDelivery>(queues.pushDelivery, options, async (jobs) => {
     for (const job of jobs) {
-      const result = await deliver(db, send, job.data, new Date());
-      log(`${queues.pushDelivery} ${job.id}: ${result}`);
+      const delivery = await logged(log, queues.pushDelivery, job, () =>
+        deliver(db, send, job.data, new Date()),
+      );
+      log(`${queues.pushDelivery} ${job.id}: ${describe(delivery)}`);
     }
   });
 }

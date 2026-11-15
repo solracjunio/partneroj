@@ -46,7 +46,10 @@ describe("deliver", () => {
     const { phone, job } = await phoneAndJob();
     const send = service(201);
 
-    expect(await deliver(w.app.db, send, job, now)).toBe("sent");
+    expect(await deliver(w.app.db, send, job, now)).toEqual({
+      result: "sent",
+      status: 201,
+    });
 
     expect(send).toHaveBeenCalledWith(
       {
@@ -64,7 +67,10 @@ describe("deliver", () => {
     async (status) => {
       const { phone, job } = await phoneAndJob();
 
-      expect(await deliver(w.app.db, service(status), job, now)).toBe("gone");
+      expect(await deliver(w.app.db, service(status), job, now)).toEqual({
+        result: "gone",
+        status,
+      });
 
       expect(await stillThere(phone.subscriptionId)).toBeNull();
     },
@@ -88,9 +94,10 @@ describe("deliver", () => {
     async (status) => {
       const { phone, job } = await phoneAndJob();
 
-      expect(await deliver(w.app.db, service(status), job, now)).toBe(
-        "refused",
-      );
+      expect(await deliver(w.app.db, service(status), job, now)).toEqual({
+        result: "refused",
+        status,
+      });
 
       expect(await stillThere(phone.subscriptionId)).not.toBeNull();
     },
@@ -107,7 +114,7 @@ describe("deliver", () => {
         { ...job, deadline: now.toISOString() },
         now,
       ),
-    ).toBe("expired");
+    ).toEqual({ result: "expired" });
     expect(send).not.toHaveBeenCalled();
   });
 
@@ -119,7 +126,9 @@ describe("deliver", () => {
       .where(eq(sessions.id, phone.sessionId));
     const send = service(201);
 
-    expect(await deliver(w.app.db, send, job, now)).toBe("no-target");
+    expect(await deliver(w.app.db, send, job, now)).toEqual({
+      result: "no-target",
+    });
     expect(send).not.toHaveBeenCalled();
   });
 
@@ -133,7 +142,9 @@ describe("deliver", () => {
       .where(eq(pushSubscriptions.id, phone.subscriptionId));
     const send = service(201);
 
-    expect(await deliver(w.app.db, send, job, now)).toBe("unsafe");
+    expect(await deliver(w.app.db, send, job, now)).toEqual({
+      result: "unsafe",
+    });
     expect(send).not.toHaveBeenCalled();
   });
 

@@ -52,8 +52,73 @@ describe("the worker", () => {
     // amount or the names.
     const lines = log.mock.calls.map(([line]) => line);
     expect(lines).toContainEqual(
-      expect.stringMatching(new RegExp(`^${queues.pushDelivery} \\S+: sent$`)),
+      expect.stringMatching(
+        new RegExp(`^${queues.pushDelivery} \\S+: sent \\(201\\)$`),
+      ),
     );
     for (const line of lines) expect(line).not.toMatch(/1\.200|João|cimento/);
   });
+
+  // A retry waits pg-boss's backoff (a few seconds), so these get longer.
+  it("logs a failed try with the push service's status, then the retry that worked", async () => {
+    const s = await seed(w);
+    await subscribedPhone(w, s.maria);
+    send
+      .mockImplementationOnce(() => Promise.resolve(503))
+      .mockImplementation(() => Promise.resolve(201));
+
+    await spend(w, s);
+
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2), {
+      timeout: 20_000,
+      interval: 200,
+    });
+    await vi.waitFor(() => {
+      const lines = log.mock.calls.map(([line]) => line);
+      expect(lines).toContainEqual(
+        expect.stringMatching(
+          new RegExp(
+            `^${queues.pushDelivery} \\S+: try 1 failed: push service answered 503$`,
+          ),
+        ),
+      );
+      expect(lines).toContainEqual(
+        expect.stringMatching(
+          new RegExp(`^${queues.pushDelivery} \\S+: sent \\(201\\)$`),
+        ),
+      );
+    });
+  }, 30_000);
+
+  it("logs a network failure by its code, never its message", async () => {
+    // A network error's message can hold the endpoint, a secret URL: who
+    // knows it can push to that phone.
+    const s = await seed(w);
+    const maria = await subscribedPhone(w, s.maria);
+    send
+      .mockImplementationOnce(() =>
+        Promise.reject(
+          Object.assign(new Error(`connect ECONNRESET ${maria.endpoint}`), {
+            code: "ECONNRESET",
+          }),
+        ),
+      )
+      .mockImplementation(() => Promise.resolve(201));
+
+    await spend(w, s);
+
+    await vi.waitFor(
+      () => {
+        const lines = log.mock.calls.map(([line]) => line);
+        expect(lines).toContainEqual(
+          expect.stringMatching(/: try 1 failed: ECONNRESET$/),
+        );
+      },
+      { timeout: 20_000, interval: 200 },
+    );
+    for (const [line] of log.mock.calls) {
+      expect(line).not.toContain(maria.endpoint);
+      expect(line).not.toContain("fcm.googleapis.com");
+    }
+  }, 30_000);
 });

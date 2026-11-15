@@ -39,30 +39,40 @@ export class RetryablePushError extends Error {
 export type DeliveryResult =
   "sent" | "gone" | "refused" | "expired" | "no-target" | "unsafe";
 
+/**
+ * The result, and the push service's HTTP status when it answered: the
+ * log shows "refused (403)", which tells a VAPID key mismatch from a
+ * payload too large (413).
+ */
+export interface Delivery {
+  result: DeliveryResult;
+  status?: number;
+}
+
 export async function deliver(
   db: Database,
   send: PushSender,
   job: PushDelivery,
   now: Date,
-): Promise<DeliveryResult> {
+): Promise<Delivery> {
   // The push service keeps an undelivered push (phone off) only until
   // the deadline, too: the TTL is what is left of it.
   const ttl = Math.floor((Date.parse(job.deadline) - now.getTime()) / 1000);
-  if (ttl <= 0) return "expired";
+  if (ttl <= 0) return { result: "expired" };
 
   const target = await deliveryTarget(db, job.subscriptionId);
-  if (target === null) return "no-target";
-  if (!isPushEndpoint(target.endpoint)) return "unsafe";
+  if (target === null) return { result: "no-target" };
+  if (!isPushEndpoint(target.endpoint)) return { result: "unsafe" };
 
   const status = await send(target, job.payload, ttl);
-  if (status >= 200 && status < 300) return "sent";
+  if (status >= 200 && status < 300) return { result: "sent", status };
   if (status === 404 || status === 410) {
     await forgetSubscription(db, {
       id: job.subscriptionId,
       endpoint: target.endpoint,
     });
-    return "gone";
+    return { result: "gone", status };
   }
   if (status === 429 || status >= 500) throw new RetryablePushError(status);
-  return "refused";
+  return { result: "refused", status };
 }
