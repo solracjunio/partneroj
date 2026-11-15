@@ -62,6 +62,20 @@ export default tseslint.config(
     rules: { complexity: ["error", 15] },
   },
   {
+    // A file above 400 lines of code almost always does more than one
+    // thing: split it by what each part changes for. The CI summary lists
+    // the largest (eslint.complexity.config.js). Tests are left out: they
+    // grow by case, and describe blocks already organize them.
+    files: ["apps/**/*.{ts,tsx}", "packages/**/*.ts"],
+    ignores: testFiles,
+    rules: {
+      "max-lines": [
+        "error",
+        { max: 400, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+  {
     // No import cycles anywhere: a cycle hides who depends on whom.
     files: ["apps/**/*.{ts,tsx}", "packages/**/*.ts"],
     plugins: { "import-x": importX },
