@@ -7,6 +7,9 @@ import {
   complexityRows,
   complexitySection,
   coverageSection,
+  fileSizeLight,
+  fileSizeRows,
+  fileSizeSection,
   light,
   mutationSection,
   percent,
@@ -239,6 +242,77 @@ describe("complexitySection", () => {
   });
 });
 
+const size = (file, lines) => ({
+  filePath: `/repo/${file}`,
+  messages: [
+    {
+      ruleId: "max-lines",
+      line: 1,
+      message: `File has too many lines (${lines}). Maximum allowed is 0.`,
+    },
+  ],
+});
+
+const sizeReport = [
+  size("packages/db/src/schema.ts", 311),
+  size("apps/web/src/ExpenseForm.tsx", 262),
+  size("apps/web/src/push.ts", 40),
+  size("apps/web/src/Huge.tsx", 420),
+];
+
+describe("fileSizeRows", () => {
+  it("gives each file's lines of code, the path from the root", () => {
+    assert.deepEqual(fileSizeRows(sizeReport, "/repo"), [
+      { file: "packages/db/src/schema.ts", lines: 311 },
+      { file: "apps/web/src/ExpenseForm.tsx", lines: 262 },
+      { file: "apps/web/src/push.ts", lines: 40 },
+      { file: "apps/web/src/Huge.tsx", lines: 420 },
+    ]);
+  });
+
+  it("keeps only the max-lines messages", () => {
+    // The same report holds the complexity of each function.
+    assert.deepEqual(fileSizeRows(eslintReport, "/repo"), []);
+  });
+});
+
+describe("fileSizeLight", () => {
+  it("is green up to 300, yellow up to the lint's 400, red above", () => {
+    assert.equal(fileSizeLight(300), "🟢");
+    assert.equal(fileSizeLight(301), "🟡");
+    assert.equal(fileSizeLight(400), "🟡");
+    assert.equal(fileSizeLight(401), "🔴");
+  });
+});
+
+describe("fileSizeSection", () => {
+  const rows = fileSizeRows(sizeReport, "/repo");
+
+  it("counts the files in each range", () => {
+    const text = fileSizeSection(rows);
+    assert.match(text, /\| 1–300 \| 2 \| 🟢 \|/);
+    assert.match(text, /\| 301–400 \| 1 \| 🟡 \|/);
+    assert.match(text, /\| 401\+ \| 1 \| 🔴 \|/);
+  });
+
+  it("lists the largest first, at most five", () => {
+    const many = Array.from({ length: 7 }, (_, i) => ({
+      file: `apps/web/src/f${i}.ts`,
+      lines: 100 + i,
+    }));
+    const text = fileSizeSection(many);
+    assert.equal((text.match(/`apps\/web\/src\/f\d\.ts`/g) ?? []).length, 5);
+    assert.ok(text.indexOf("f6.ts") < text.indexOf("f2.ts"));
+    assert.doesNotMatch(text, /f1\.ts/);
+  });
+
+  it("shows each file with its lines and light", () => {
+    const text = fileSizeSection(rows);
+    assert.match(text, /\| `apps\/web\/src\/Huge\.tsx` \| 420 \| 🔴 \|/);
+    assert.ok(text.indexOf("Huge.tsx") < text.indexOf("schema.ts"));
+  });
+});
+
 describe("render", () => {
   it("puts both in one summary, with the legend", () => {
     const text = render({
@@ -271,6 +345,31 @@ describe("render", () => {
     assert.match(text, /### Complexity \(per function\)\n\n\| Range \|/);
     assert.match(text, /🟢 up to 10 · 🟡 11 to 15 · 🔴 above 15/);
     assert.ok(text.indexOf("### Mutation") < text.indexOf("### Complexity"));
+  });
+
+  it("adds the file sizes after the complexity, with their own legend", () => {
+    const text = render({
+      coverage,
+      mutation: { files: {} },
+      complexity: complexityRows(eslintReport, "/repo"),
+      size: fileSizeRows(sizeReport, "/repo"),
+    });
+    assert.match(text, /### Size \(per file\)\n\n\| Range \|/);
+    assert.match(text, /🟢 up to 300 · 🟡 301 to 400 · 🔴 above 400/);
+    assert.ok(text.indexOf("### Complexity") < text.indexOf("### Size"));
+  });
+
+  it("says when the size report is missing", () => {
+    const text = render({
+      coverage,
+      mutation: { files: {} },
+      complexity: null,
+      size: null,
+    });
+    assert.match(
+      text,
+      /_No size report: the complexity step did not finish\._/,
+    );
   });
 
   it("says when the complexity report is missing", () => {

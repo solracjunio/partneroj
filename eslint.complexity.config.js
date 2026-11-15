@@ -1,7 +1,9 @@
 // @ts-check
 // Only for measuring (pnpm complexity, the CI's summary): every
 // function's cyclomatic complexity, from ESLint's own `complexity` rule
-// with max 0, so each function is reported with its number. No type
+// with max 0, so each function is reported with its number, and every
+// file's size from `max-lines` with max 0, counted as the lint's limit
+// counts it (no blank lines, no comments). No type
 // information and no other rule, so it runs fast. The usual lint is
 // eslint.config.js; this one never fails a run.
 import tseslint from "typescript-eslint";
@@ -20,6 +22,12 @@ export default tseslint.config(
     ignores: ["**/*.test.{ts,tsx}", "**/testing.ts", "**/*.d.ts"],
     languageOptions: { parser: tseslint.parser },
     linterOptions: { reportUnusedDisableDirectives: "off" },
-    rules: { complexity: ["warn", 0] },
+    rules: {
+      complexity: ["warn", 0],
+      "max-lines": [
+        "warn",
+        { max: 0, skipBlankLines: true, skipComments: true },
+      ],
+    },
   },
 );
