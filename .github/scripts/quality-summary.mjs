@@ -1,9 +1,10 @@
-// The coverage and mutation summary of a CI run, as markdown tables with
-// a traffic light per value, written to the run's Job Summary. Reads the
-// reports the run already made, so it costs no extra test run:
+// The coverage, mutation, complexity and file size summary of a CI run,
+// as markdown tables with a traffic light per value, written to the run's
+// Job Summary. Reads the reports the run already made, so it costs no
+// extra test run:
 //   coverage/coverage-summary.json                 (pnpm coverage)
 //   packages/domain/reports/mutation/mutation.json (pnpm --filter @partneroj/domain mutation)
-//   reports/complexity/eslint.json                 (pnpm complexity)
+//   reports/complexity/eslint.json                 (pnpm complexity: also the file sizes)
 // Usage: node .github/scripts/quality-summary.mjs >> "$GITHUB_STEP_SUMMARY"
 // Locally, `pnpm quality` runs them all and prints the same tables.
 import { readFileSync } from "node:fs";
@@ -200,7 +201,61 @@ export function complexitySection(rows) {
   return `${ranges}\n\n${mostComplex}`;
 }
 
-export function render({ coverage, mutation, complexity }) {
+/**
+ * Each file's lines of code (no blank lines, no comments), from the same
+ * ESLint report, where `max-lines` with max 0 reports every file.
+ */
+export function fileSizeRows(report, root) {
+  const rows = [];
+  for (const { filePath, messages } of report) {
+    const file = filePath.startsWith(`${root}/`)
+      ? filePath.slice(root.length + 1)
+      : filePath;
+    for (const m of messages) {
+      if (m.ruleId !== "max-lines") continue;
+      const found = /too many lines \((\d+)\)/.exec(m.message);
+      if (found !== null) rows.push({ file, lines: Number(found[1]) });
+    }
+  }
+  return rows;
+}
+
+/** 🟢 up to 300, 🟡 up to 400 (the lint's limit, as eslint.config.js), 🔴 above. */
+export function fileSizeLight(lines) {
+  if (lines <= 300) return "🟢";
+  if (lines <= 400) return "🟡";
+  return "🔴";
+}
+
+const SIZE_LEGEND = "🟢 up to 300 · 🟡 301 to 400 · 🔴 above 400";
+
+/** How many files in each range, then the TOP largest. */
+export function fileSizeSection(rows) {
+  const ranges = table(
+    ["Range", "Files", ""],
+    ["---", "--:", ":-:"],
+    [
+      ["1–300", rows.filter((r) => r.lines <= 300).length, "🟢"],
+      [
+        "301–400",
+        rows.filter((r) => r.lines > 300 && r.lines <= 400).length,
+        "🟡",
+      ],
+      ["401+", rows.filter((r) => r.lines > 400).length, "🔴"],
+    ],
+  );
+  const top = [...rows]
+    .sort((a, b) => b.lines - a.lines || a.file.localeCompare(b.file))
+    .slice(0, TOP);
+  const largest = table(
+    ["File", "Lines of code", ""],
+    ["---", "--:", ":-:"],
+    top.map((r) => [`\`${r.file}\``, String(r.lines), fileSizeLight(r.lines)]),
+  );
+  return `${ranges}\n\n${largest}`;
+}
+
+export function render({ coverage, mutation, complexity, size = null }) {
   return [
     "## Coverage and mutation",
     "",
@@ -226,12 +281,25 @@ export function render({ coverage, mutation, complexity }) {
     "",
     COMPLEXITY_LEGEND,
     "",
+    "### Size (per file)",
+    "",
+    size === null
+      ? "_No size report: the complexity step did not finish._"
+      : fileSizeSection(size),
+    "",
+    SIZE_LEGEND,
+    "",
   ].join("\n");
 }
 
 /** The functions' complexity, or null without the report. */
 function complexityOf(report) {
   return report === null ? null : complexityRows(report, process.cwd());
+}
+
+/** The files' sizes, from the same report, or null without it. */
+function sizeOf(report) {
+  return report === null ? null : fileSizeRows(report, process.cwd());
 }
 
 /** The report's JSON, or null when the step that writes it did not finish. */
@@ -244,11 +312,13 @@ function readReport(path) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  const eslint = readReport("reports/complexity/eslint.json");
   process.stdout.write(
     render({
       coverage: readReport("coverage/coverage-summary.json"),
       mutation: readReport("packages/domain/reports/mutation/mutation.json"),
-      complexity: complexityOf(readReport("reports/complexity/eslint.json")),
+      complexity: complexityOf(eslint),
+      size: sizeOf(eslint),
     }),
   );
 }
