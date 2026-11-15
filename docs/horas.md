@@ -48,5 +48,4 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 1A. Domínio dos sócios | 18 h | 2,0 h |
 | 2A. Persistência dos sócios | 15 h | 3,5 h |
 | Infra de produção | 12 h | 4,25 h |
-| Versão para os sócios | 30 h | 17,25 h (em andamento) |
-| Importação da planilha | 3 h | |
+| Versão para os sócios | 30 h | 17,25 h |
