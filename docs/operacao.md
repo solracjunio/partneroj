@@ -436,14 +436,14 @@ ssh partneroj 'cd ~/partneroj && docker compose -f infra/production/compose.yml 
 | Resultado | Quer dizer |
 |---|---|
 | `entry-notification …: N to send` | N celulares a avisar (0: ninguém mais tem os avisos ligados, ou o lançamento tem mais de 24 h) |
-| `push-delivery …: sent` | o serviço de push (Google, Mozilla…) aceitou; dali até o celular é com ele |
-| `gone` | o serviço não conhece mais a inscrição (404/410); ela foi apagada, e o sócio precisa tocar em "Ativar avisos" de novo |
-| `refused` | outro erro 4xx, que se repetiria (chave VAPID diferente da inscrição, por exemplo); não é tentado de novo |
+| `push-delivery …: sent (201)` | o serviço de push (Google, Mozilla…) aceitou; dali até o celular é com ele. Se o aviso demorar a chegar com `sent` rápido, veja a bateria do navegador no celular ("Sem restrições") |
+| `gone (410)` | o serviço não conhece mais a inscrição (404 ou 410); ela foi apagada, e o sócio precisa tocar em "Ativar avisos" de novo |
+| `refused (403)` | outro erro 4xx, que se repetiria; não é tentado de novo. **403**: a inscrição foi feita com outra chave VAPID (desligar e ativar os avisos de novo naquele celular deve resolver: "Desligar" apaga a inscrição antiga no servidor e no navegador, e "Ativar" cria outra com a chave atual); **413**: aviso grande demais; **400**: pedido inválido |
 | `expired` | passou das 24 h sem conseguir enviar |
 | `no-target` | a sessão daquele celular foi revogada ou expirou, ou o aviso foi desligado |
 | `unsafe` | endereço fora dos serviços de push conhecidos; nunca é chamado |
-
-Um erro 429 ou 5xx do serviço de push, ou uma falha de rede, aparece como erro do job, e o pg-boss tenta de novo com espera crescente (até cerca de uma hora, nunca depois das 24 h).
+| `… try N failed: push service answered 503` | a tentativa N falhou e o pg-boss tenta de novo com espera crescente (até cerca de uma hora, nunca depois das 24 h). Vale para 429 e 5xx do serviço de push |
+| `… try N failed: ECONNRESET` | falha de rede, também repetida. Aparece só o código do erro: a mensagem pode conter o endereço da inscrição, que é secreto |
 
 ## Trocar a senha da aplicação
 
