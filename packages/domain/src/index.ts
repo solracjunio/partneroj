@@ -10,6 +10,16 @@ export {
 } from "./balances.js";
 export { DomainError, type DomainErrorCode } from "./errors.js";
 export {
+  BALLOT_DAYS,
+  closesAt,
+  tallyBallot,
+  type Ballot,
+  type BallotRule,
+  type CastVote,
+  type Outcome,
+  type Tally,
+} from "./ballot.js";
+export {
   assertCanRecord,
   createReversal,
   statusOf,
