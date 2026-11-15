@@ -115,6 +115,24 @@ describe("createReversal", () => {
     });
   });
 
+  it("refuses to reverse the entry a ballot corrected", () => {
+    // Plan section 3: not even its author can; only a new ballot on a new entry.
+    const corrected: LedgerEntry = {
+      ...cement,
+      id: "e9",
+      amount: 30500n,
+      createdByBallot: "b1",
+    };
+    const reverse = () =>
+      createReversal([corrected], weights, {
+        id: "e10",
+        originalId: "e9",
+        reason: "changed my mind",
+      });
+    expect(refusal(reverse)).toBe("corrected-by-ballot");
+    expect(refusalMessage(reverse)).toContain("e9");
+  });
+
   it("refuses a reversal that would leave an account below zero", () => {
     const ledger: LedgerEntry[] = [
       {

@@ -4,7 +4,11 @@ export type DomainErrorCode =
   | "already-reversed"
   | "reversal-of-reversal"
   | "reason-required"
-  | "account-overdrawn";
+  | "account-overdrawn"
+  | "corrected-by-ballot"
+  | "ballot-open"
+  | "already-contested"
+  | "settlement-announced";
 
 /** A business rule refused the operation. */
 export class DomainError extends Error {

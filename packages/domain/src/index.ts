@@ -20,6 +20,13 @@ export {
   type Tally,
 } from "./ballot.js";
 export {
+  assertCanOpenEntryBallot,
+  proposalApplies,
+  type EntryBallotContext,
+  type EntryBallotRequest,
+  type Proposal,
+} from "./entry-ballot.js";
+export {
   assertCanRecord,
   createReversal,
   statusOf,

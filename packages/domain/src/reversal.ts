@@ -11,6 +11,11 @@ export type LedgerEntry = Entry & {
   reversalOf?: string;
   /** Why it was reversed; required on a reversal. */
   reason?: string;
+  /**
+   * Set on an entry a ballot created to correct another: the ballot's id.
+   * Such an entry can't be reversed or contested (plan section 3).
+   */
+  createdByBallot?: string;
 };
 
 export interface ReversalRequest {
@@ -37,6 +42,11 @@ export function createReversal(
     throw new DomainError("reversal-of-reversal", "A reversal is final");
   if (ledger.some((e) => e.reversalOf === original.id))
     throw new DomainError("already-reversed", `${original.id} is reversed`);
+  if (original.createdByBallot !== undefined)
+    throw new DomainError(
+      "corrected-by-ballot",
+      `${original.id} was corrected by a ballot`,
+    );
   const reversal: LedgerEntry = {
     ...original,
     id: request.id,
