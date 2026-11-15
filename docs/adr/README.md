@@ -31,3 +31,4 @@ Cada arquivo registra uma decisão técnica: o contexto, as opções considerada
 | [0006](0006-lancamentos-imutaveis-com-estorno.md) | Lançamentos imutáveis, com estorno único e status derivado | aceito |
 | [0007](0007-lancamento-de-abertura.md) | Lançamento de abertura em vez de saldo inicial | aceito |
 | [0008](0008-fronteiras-entre-pacotes.md) | Fronteiras entre pacotes verificadas pelo lint | aceito |
+| [0009](0009-simplificacao-de-dividas.md) | Simplificação de dívidas: busca exata até 8 participantes, guloso acima | aceito |
