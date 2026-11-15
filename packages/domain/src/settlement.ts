@@ -69,6 +69,68 @@ export function greedyTransfers(
   }
 }
 
+/**
+ * Up to this many participants who aren't even, settle searches for the
+ * fewest transfers; above it, the greedy alone (ADR 0009).
+ */
+export const EXACT_SEARCH_LIMIT = 8;
+
+/**
+ * The settlement's transfers, the fewest possible (ADR 0009). The fewest
+ * is the people who aren't even minus the most groups they split into
+ * where each group adds up to zero: no transfer needs to cross groups, and
+ * a group of k needs k − 1, which the greedy makes inside it. Finding the
+ * groups is exponential, so above EXACT_SEARCH_LIMIT the greedy alone
+ * answers, still with at most n − 1.
+ */
+export function settle(participants: readonly Participant[]): Transfer[] {
+  assertSettleable(participants);
+  const uneven = participants.filter((p) => p.balance !== 0n);
+  if (uneven.length > EXACT_SEARCH_LIMIT) return greedyTransfers(uneven);
+  return zeroSumGroups(uneven).flatMap((group) => greedyTransfers(group));
+}
+
+/**
+ * The most groups adding up to zero that the list splits into, each in the
+ * list's order. Sets of people are bitmasks (bit i is list[i]). Each split
+ * tries only the groups holding the first person left, so no split is
+ * counted twice. Nothing is remembered between branches: with up to 8
+ * people the worst case measured is 1,245 steps (ADR 0009).
+ */
+function zeroSumGroups(list: readonly Participant[]): Participant[][] {
+  const sums = maskSums(list);
+
+  const split = (left: number): number[] => {
+    // Stryker disable next-line all: with nobody left the loop alone also gives [], and anything else here becomes an empty group, with no transfer.
+    if (left === 0) return [];
+    const first = left & -left;
+    // `left` adds up to zero, so the loop finds at least `left` itself.
+    let most: number[] = [];
+    for (let group = left; group > 0; group = (group - 1) & left) {
+      if ((group & first) === 0 || sums[group] !== 0n) continue;
+      const rest = split(left ^ group);
+      // Stryker disable next-line EqualityOperator: on a tie both splits have as few transfers, and either is deterministic.
+      if (rest.length + 1 > most.length) most = [group, ...rest];
+    }
+    return most;
+  };
+
+  return split((1 << list.length) - 1).map((group) =>
+    list.filter((_, i) => (group & (1 << i)) !== 0),
+  );
+}
+
+/** Each set's balance: a set's sum is its lowest member plus the rest's. */
+function maskSums(list: readonly Participant[]): bigint[] {
+  const sums = [0n];
+  for (let mask = 1; mask < 1 << list.length; mask++) {
+    const lowest = 31 - Math.clz32(mask & -mask);
+    // Stryker disable next-line ArithmeticOperator: subtracting gives −sum, which is zero exactly when sum is, and only zero is asked.
+    sums[mask] = sums[mask & (mask - 1)]! + list[lowest]!.balance;
+  }
+  return sums;
+}
+
 /** The first participant whose balance beats all the others by `beats`. */
 function extreme(
   list: Participant[],

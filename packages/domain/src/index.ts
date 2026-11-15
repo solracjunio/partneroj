@@ -20,7 +20,9 @@ export {
 export { totalsByCategory } from "./categories.js";
 export { fairShares, sameWeights } from "./contributions.js";
 export {
+  EXACT_SEARCH_LIMIT,
   greedyTransfers,
+  settle,
   settlementParticipants,
   type Participant,
   type Transfer,
