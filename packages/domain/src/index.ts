@@ -19,3 +19,9 @@ export {
 } from "./reversal.js";
 export { totalsByCategory } from "./categories.js";
 export { fairShares, sameWeights } from "./contributions.js";
+export {
+  greedyTransfers,
+  settlementParticipants,
+  type Participant,
+  type Transfer,
+} from "./settlement.js";
