@@ -14,6 +14,7 @@
     "test": "pnpm -r --if-present test",
     "coverage": "vitest run --coverage",
     "complexity": "eslint --config eslint.complexity.config.js --format json --output-file reports/complexity/eslint.json apps packages",
+    "hotspots": "pnpm complexity && node .github/scripts/hotspots.mjs",
     "quality": "pnpm coverage && pnpm --filter @partneroj/domain mutation && pnpm complexity && node .github/scripts/quality-summary.mjs",
     "test:scripts": "node --test .github/scripts/",
     "build": "pnpm -r --if-present build",
