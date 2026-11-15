@@ -1,27 +1,19 @@
 import type { CurrentProject, RecordedExpense } from "@partneroj/contracts";
-import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import { api, type Failure, type Result } from "./api";
 import {
+  ReceiptField,
+  useReceiptChoice,
+  useReceiptUpload,
+} from "./ExpenseReceipt";
+import { SavedScreen } from "./ExpenseSaved";
+import {
   type DraftProblem,
   type ExpenseDraft,
-  formatDate,
   localDate,
   readDraft,
 } from "./expenseForm";
-import { formatCents } from "./money";
-import {
-  prepareReceipt,
-  type ReadyReceipt,
-  type ReceiptProblem,
-} from "./receiptPhoto";
-import {
-  ReceiptChooser,
-  ReceiptPreview,
-  receiptProblemText,
-  retryable,
-  uploadProblemText,
-} from "./ReceiptParts";
 import { navigate } from "./routes";
 
 const problemText: Record<DraftProblem, string> = {
@@ -42,8 +34,6 @@ const sendProblemText: Record<Failure, string> = {
   conflict: "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo.",
   error: "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo.",
 };
-
-type Upload = "none" | "sending" | "sent" | Failure;
 
 function emptyDraft(occurredOn: string): ExpenseDraft {
   return { amount: "", categoryId: null, occurredOn, description: "" };
@@ -80,12 +70,8 @@ function Form({ current }: { current: CurrentProject }) {
   const [saving, setSaving] = useState(false);
   const [sendProblem, setSendProblem] = useState<Failure | null>(null);
   const [saved, setSaved] = useState<RecordedExpense | null>(null);
-  const [receipt, setReceipt] = useState<ReadyReceipt | null>(null);
-  const [receiptProblem, setReceiptProblem] = useState<ReceiptProblem | null>(
-    null,
-  );
-  const [preparing, setPreparing] = useState(false);
-  const [upload, setUpload] = useState<Upload>("none");
+  const photo = useReceiptChoice();
+  const upload = useReceiptUpload();
   // One key per draft, kept while "Salvar" is tapped again after a lost
   // answer, so the server records it once. Any edit makes a new one: the
   // server must never answer a corrected draft with the expense before.
@@ -95,47 +81,11 @@ function Form({ current }: { current: CurrentProject }) {
     setDraft((before) => ({ ...before, ...fields }));
     setSaveKey(crypto.randomUUID());
   };
-  const has = (problem: DraftProblem) => problems.includes(problem);
-
-  async function choose(
-    event: ChangeEvent<HTMLInputElement>,
-  ): Promise<ReadyReceipt | null> {
-    const file = event.target.files?.[0];
-    // Cleared, so choosing the same file again still counts as a change.
-    event.target.value = "";
-    if (file === undefined) return null;
-    setPreparing(true);
-    const prepared = await prepareReceipt(file);
-    setPreparing(false);
-    if (prepared.ok) {
-      setReceipt(prepared.receipt);
-      setReceiptProblem(null);
-      return prepared.receipt;
-    }
-    setReceipt(null);
-    setReceiptProblem(prepared.problem);
-    return null;
-  }
-
-  /** On "Gasto salvo.": the photo forgotten before saving, sent right away. */
-  async function chooseAfterSaving(
-    entryId: string,
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
-    const ready = await choose(event);
-    if (ready !== null) await sendReceipt(entryId, ready.blob);
-  }
-
-  async function sendReceipt(entryId: string, file: Blob) {
-    setUpload("sending");
-    const result = await api.addReceipt(entryId, file);
-    setUpload(result.ok ? "sent" : result.failure);
-  }
 
   async function save(event: FormEvent) {
     event.preventDefault();
     // A second tap while the first is on its way would record it twice.
-    if (saving || preparing) return;
+    if (saving || photo.preparing) return;
     const read = readDraft(current.project.id, draft);
     if (!read.ok) {
       setProblems(read.problems);
@@ -153,33 +103,40 @@ function Form({ current }: { current: CurrentProject }) {
       return;
     }
     setSaved(result.value);
-    if (receipt !== null) void sendReceipt(result.value.id, receipt.blob);
+    if (photo.receipt !== null) {
+      void upload.send(result.value.id, photo.receipt.blob);
+    }
   }
 
   if (saved !== null) {
+    const receipt = photo.receipt;
     return (
       <SavedScreen
         saved={saved}
         category={
           current.categories.find((c) => c.id === draft.categoryId)?.name
         }
-        upload={upload}
-        preparing={preparing}
-        receiptProblem={receiptProblem}
+        upload={upload.upload}
+        preparing={photo.preparing}
+        receiptProblem={photo.problem}
         onRetry={
           receipt === null
             ? undefined
-            : () => void sendReceipt(saved.id, receipt.blob)
+            : () => void upload.send(saved.id, receipt.blob)
         }
-        onChoose={(event) => void chooseAfterSaving(saved.id, event)}
+        // The photo forgotten before saving, sent right away.
+        onChoose={(event) =>
+          void photo.choose(event).then((ready) => {
+            if (ready !== null) void upload.send(saved.id, ready.blob);
+          })
+        }
         onAnother={() => {
           // The same day is the likeliest for the next receipt too.
           setDraft(emptyDraft(draft.occurredOn));
           setSaveKey(crypto.randomUUID());
           setSaved(null);
-          setReceipt(null);
-          setReceiptProblem(null);
-          setUpload("none");
+          photo.clear();
+          upload.reset();
         }}
       />
     );
@@ -193,91 +150,23 @@ function Form({ current }: { current: CurrentProject }) {
       </p>
 
       <form onSubmit={(event) => void save(event)} noValidate>
-        <div className="field">
-          <label htmlFor="amount">Valor (R$)</label>
-          <input
-            id="amount"
-            type="text"
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder="0,00"
-            value={draft.amount}
-            onChange={(event) => change({ amount: event.target.value })}
-            aria-invalid={has("amount")}
-            aria-describedby={has("amount") ? "amount-problem" : undefined}
-          />
-          {has("amount") && (
-            <p id="amount-problem" className="problem">
-              {problemText.amount}
-            </p>
-          )}
-        </div>
-
-        <fieldset className="field">
-          <legend>O que foi</legend>
-          <div className="choices">
-            {current.categories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                className="choice"
-                aria-pressed={draft.categoryId === category.id}
-                onClick={() => change({ categoryId: category.id })}
-              >
-                {category.name}
-              </button>
-            ))}
-          </div>
-          {has("category") && <p className="problem">{problemText.category}</p>}
-        </fieldset>
-
-        <div className="field">
-          <label htmlFor="occurred-on">Data</label>
-          <input
-            id="occurred-on"
-            type="date"
-            max={today}
-            value={draft.occurredOn}
-            onChange={(event) => change({ occurredOn: event.target.value })}
-            aria-invalid={has("date")}
-          />
-          {has("date") && <p className="problem">{problemText.date}</p>}
-        </div>
-
-        <div className="field">
-          <label htmlFor="description">
-            Descrição <span className="muted">(se quiser)</span>
-          </label>
-          <input
-            id="description"
-            type="text"
-            maxLength={200}
-            placeholder="Por exemplo: 10 sacos de cimento"
-            value={draft.description}
-            onChange={(event) => change({ description: event.target.value })}
-            aria-invalid={has("description")}
-          />
-          {has("description") && (
-            <p className="problem">{problemText.description}</p>
-          )}
-        </div>
+        <DraftFields
+          draft={draft}
+          problems={problems}
+          categories={current.categories}
+          today={today}
+          onChange={change}
+        />
 
         <ReceiptField
-          receipt={receipt}
-          problem={receiptProblem}
-          preparing={preparing}
-          onChoose={(event) => void choose(event)}
-          onRemove={() => {
-            setReceipt(null);
-            setReceiptProblem(null);
-          }}
+          choice={{ ...photo, onChoose: (event) => void photo.choose(event) }}
         />
 
         <div className="actions">
           <button
             type="submit"
             className="primary"
-            disabled={saving || preparing}
+            disabled={saving || photo.preparing}
           >
             {saving ? "Salvando…" : "Salvar"}
           </button>
@@ -299,149 +188,92 @@ function Form({ current }: { current: CurrentProject }) {
   );
 }
 
-/**
- * "Gasto salvo.": what was recorded, how the photo is going, and the way
- * to the next expense. A photo forgotten, or one the server refused, can
- * still be sent from here.
- */
-function SavedScreen({
-  saved,
-  category,
-  upload,
-  preparing,
-  receiptProblem,
-  onRetry,
-  onChoose,
-  onAnother,
+/** Valor, O que foi, Data and Descrição, each with its problem. */
+function DraftFields({
+  draft,
+  problems,
+  categories,
+  today,
+  onChange,
 }: {
-  saved: RecordedExpense;
-  category: string | undefined;
-  upload: Upload;
-  preparing: boolean;
-  receiptProblem: ReceiptProblem | null;
-  /** Sends the photo again; undefined when there is none to send. */
-  onRetry: (() => void) | undefined;
-  onChoose: (event: ChangeEvent<HTMLInputElement>) => void;
-  onAnother: () => void;
+  draft: ExpenseDraft;
+  problems: DraftProblem[];
+  categories: CurrentProject["categories"];
+  today: string;
+  onChange: (fields: Partial<ExpenseDraft>) => void;
 }) {
+  const has = (problem: DraftProblem) => problems.includes(problem);
   return (
-    <section>
-      <h1>Gasto salvo.</h1>
-      <p>
-        <strong>R$ {formatCents(saved.amountCents)}</strong>
-        {category && <> em {category}</>}, no dia {formatDate(saved.occurredOn)}
-        .
-      </p>
-      <UploadStatus upload={upload} onRetry={onRetry} />
-      {/* No photo yet, or one the server refused: another can still go. */}
-      {(upload === "none" || upload === "unsupported") && (
-        <fieldset className="field">
-          <legend>
-            {upload === "none"
-              ? "Esqueceu o comprovante?"
-              : "Quer mandar outro arquivo?"}
-          </legend>
-          {preparing ? (
-            <p className="muted">Preparando a foto…</p>
-          ) : (
-            <ReceiptChooser onChoose={onChoose} />
-          )}
-          {receiptProblem !== null && (
-            <p role="alert" className="problem">
-              {receiptProblemText[receiptProblem]}
-            </p>
-          )}
-        </fieldset>
-      )}
-      <div className="actions">
-        <button
-          type="button"
-          className="primary"
-          // The answer of a photo still going up would land on the next
-          // expense.
-          disabled={upload === "sending" || preparing}
-          onClick={onAnother}
-        >
-          Fiz outro gasto
-        </button>
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => navigate("/")}
-        >
-          Voltar ao início
-        </button>
+    <>
+      <div className="field">
+        <label htmlFor="amount">Valor (R$)</label>
+        <input
+          id="amount"
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          placeholder="0,00"
+          value={draft.amount}
+          onChange={(event) => onChange({ amount: event.target.value })}
+          aria-invalid={has("amount")}
+          aria-describedby={has("amount") ? "amount-problem" : undefined}
+        />
+        {has("amount") && (
+          <p id="amount-problem" className="problem">
+            {problemText.amount}
+          </p>
+        )}
       </div>
-    </section>
-  );
-}
 
-function ReceiptField({
-  receipt,
-  problem,
-  preparing,
-  onChoose,
-  onRemove,
-}: {
-  receipt: ReadyReceipt | null;
-  problem: ReceiptProblem | null;
-  preparing: boolean;
-  onChoose: (event: ChangeEvent<HTMLInputElement>) => void;
-  onRemove: () => void;
-}) {
-  return (
-    <fieldset className="field">
-      <legend>
-        Comprovante <span className="muted">(se quiser)</span>
-      </legend>
-      {preparing && <p className="muted">Preparando a foto…</p>}
-      {receipt !== null && !preparing && (
-        <div className="receipt">
-          <ReceiptPreview receipt={receipt} />
-          <button type="button" className="secondary" onClick={onRemove}>
-            Tirar o comprovante
-          </button>
+      <fieldset className="field">
+        <legend>O que foi</legend>
+        <div className="choices">
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              className="choice"
+              aria-pressed={draft.categoryId === category.id}
+              onClick={() => onChange({ categoryId: category.id })}
+            >
+              {category.name}
+            </button>
+          ))}
         </div>
-      )}
-      {receipt === null && !preparing && <ReceiptChooser onChoose={onChoose} />}
-      {problem !== null && (
-        <p role="alert" className="problem">
-          {receiptProblemText[problem]}
-        </p>
-      )}
-    </fieldset>
-  );
-}
+        {has("category") && <p className="problem">{problemText.category}</p>}
+      </fieldset>
 
-function UploadStatus({
-  upload,
-  onRetry,
-}: {
-  upload: Upload;
-  onRetry: (() => void) | undefined;
-}) {
-  if (upload === "none") return null;
-  if (upload === "sending") {
-    return (
-      <p role="status" className="muted">
-        Enviando a foto…
-      </p>
-    );
-  }
-  if (upload === "sent") {
-    return <p role="status">Foto do comprovante enviada.</p>;
-  }
-  return (
-    <div className="actions">
-      <p role="alert" className="problem">
-        {uploadProblemText[upload]} O gasto já está salvo.
-      </p>
-      {retryable.has(upload) && onRetry !== undefined && (
-        <button type="button" className="primary" onClick={onRetry}>
-          Enviar a foto de novo
-        </button>
-      )}
-    </div>
+      <div className="field">
+        <label htmlFor="occurred-on">Data</label>
+        <input
+          id="occurred-on"
+          type="date"
+          max={today}
+          value={draft.occurredOn}
+          onChange={(event) => onChange({ occurredOn: event.target.value })}
+          aria-invalid={has("date")}
+        />
+        {has("date") && <p className="problem">{problemText.date}</p>}
+      </div>
+
+      <div className="field">
+        <label htmlFor="description">
+          Descrição <span className="muted">(se quiser)</span>
+        </label>
+        <input
+          id="description"
+          type="text"
+          maxLength={200}
+          placeholder="Por exemplo: 10 sacos de cimento"
+          value={draft.description}
+          onChange={(event) => onChange({ description: event.target.value })}
+          aria-invalid={has("description")}
+        />
+        {has("description") && (
+          <p className="problem">{problemText.description}</p>
+        )}
+      </div>
+    </>
   );
 }
 
