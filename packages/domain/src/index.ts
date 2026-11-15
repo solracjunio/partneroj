@@ -8,7 +8,12 @@ export {
   type Party,
   type PartnerBalance,
 } from "./balances.js";
-export { DomainError, type DomainErrorCode } from "./errors.js";
+export {
+  DomainError,
+  isReversalErrorCode,
+  type DomainErrorCode,
+  type ReversalErrorCode,
+} from "./errors.js";
 export {
   BALLOT_DAYS,
   closesAt,

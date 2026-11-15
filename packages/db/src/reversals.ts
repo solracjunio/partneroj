@@ -5,7 +5,8 @@
 import {
   createReversal,
   DomainError,
-  type DomainErrorCode,
+  isReversalErrorCode,
+  type ReversalErrorCode,
 } from "@partneroj/domain";
 import { and, eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
@@ -17,7 +18,7 @@ import { isUniqueViolation } from "./pg-errors.js";
 import { entries, projects } from "./schema.js";
 
 /** Why a reversal was refused; the API turns each into a response. */
-export type ReversalRefusal = DomainErrorCode | "not-author";
+export type ReversalRefusal = ReversalErrorCode | "not-author";
 
 export class ReversalRefused extends Error {
   constructor(readonly reason: ReversalRefusal) {
@@ -35,7 +36,7 @@ export const MAX_REASON_LENGTH = 200;
  * 0006); the others will contest through a vote.
  *
  * The domain refuses a missing reason, a second reversal, a reversal of a
- * reversal and an account left below zero. Two requests at the same
+ * reversal, the entry a ballot corrected and an account left below zero. Two requests at the same
  * moment can both pass that check; the unique index on reversal_of lets
  * only one insert, and the other is refused as already reversed.
  */
@@ -49,7 +50,9 @@ export async function reverseEntry(
     return await db.transaction((tx) => reverseIn(tx, boss, actor, request));
   } catch (error) {
     if (isUniqueViolation(error)) throw new ReversalRefused("already-reversed");
-    if (error instanceof DomainError) throw new ReversalRefused(error.code);
+    // Only a reversal's own refusals are answers; any other code is a bug.
+    if (error instanceof DomainError && isReversalErrorCode(error.code))
+      throw new ReversalRefused(error.code);
     throw error;
   }
 }
