@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertCanOpenEntryBallot,
   proposalApplies,
+  type EarlierBallot,
   type EntryBallotRequest,
 } from "./entry-ballot.js";
 import { DomainError, type DomainErrorCode } from "./errors.js";
@@ -66,7 +67,7 @@ function refusal(action: () => unknown): DomainErrorCode | undefined {
 const open = (
   ledger: LedgerEntry[],
   request: EntryBallotRequest,
-  ballots: { entryId: string; open: boolean }[] = [],
+  ballots: EarlierBallot[] = [],
   settlementAnnounced = false,
 ) =>
   refusal(() =>
@@ -139,7 +140,7 @@ describe("assertCanOpenEntryBallot", () => {
   });
 
   it("allows one open ballot per entry", () => {
-    const ballots = [{ entryId: "e1", open: true }];
+    const ballots: EarlierBallot[] = [{ entryId: "e1", status: "open" }];
     expect(open([cement], archive("e1"), ballots)).toBe("ballot-open");
     expect(
       refusalMessage(() =>
@@ -154,16 +155,17 @@ describe("assertCanOpenEntryBallot", () => {
     ).toContain("e1");
   });
 
-  it("refuses an entry that already had its ballot, whatever the outcome", () => {
-    expect(
-      open([cement], archive("e1"), [{ entryId: "e1", open: false }]),
-    ).toBe("already-contested");
+  it("refuses an entry that already had its ballot, rejected or otherwise decided", () => {
+    for (const status of ["rejected", "approved", "moot"] as const)
+      expect(open([cement], archive("e1"), [{ entryId: "e1", status }])).toBe(
+        "already-contested",
+      );
     expect(
       refusalMessage(() =>
         assertCanOpenEntryBallot({
           ledger: [cement],
           weights,
-          ballots: [{ entryId: "e1", open: false }],
+          ballots: [{ entryId: "e1", status: "rejected" }],
           request: archive("e1"),
           settlementAnnounced: false,
         }),
@@ -171,8 +173,36 @@ describe("assertCanOpenEntryBallot", () => {
     ).toContain("e1");
     // Another entry's ballot doesn't count.
     expect(
-      open([cement], archive("e1"), [{ entryId: "e7", open: true }]),
+      open([cement], archive("e1"), [{ entryId: "e7", status: "open" }]),
     ).toBeUndefined();
+  });
+
+  it("opens again after a ballot with no effect: the majority won, the balance stopped it", () => {
+    expect(
+      open([cement], archive("e1"), [{ entryId: "e1", status: "no-effect" }]),
+    ).toBeUndefined();
+    // Any number of times, as long as each one was won.
+    expect(
+      open([cement], archive("e1"), [
+        { entryId: "e1", status: "no-effect" },
+        { entryId: "e1", status: "no-effect" },
+      ]),
+    ).toBeUndefined();
+  });
+
+  it("refuses again once a later ballot is decided or open, whatever came first", () => {
+    expect(
+      open([cement], archive("e1"), [
+        { entryId: "e1", status: "no-effect" },
+        { entryId: "e1", status: "rejected" },
+      ]),
+    ).toBe("already-contested");
+    expect(
+      open([cement], archive("e1"), [
+        { entryId: "e1", status: "no-effect" },
+        { entryId: "e1", status: "open" },
+      ]),
+    ).toBe("ballot-open");
   });
 
   it("refuses any new ballot once the final settlement is announced", () => {
