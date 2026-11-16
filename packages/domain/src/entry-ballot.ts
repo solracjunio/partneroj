@@ -12,10 +12,18 @@ import {
 import type { Weight } from "./split.js";
 
 /**
+ * The entry a correction records. `accrualOn` is optional as in
+ * LedgerEntry: the database always fills it; tests about balances leave
+ * it out.
+ */
+export type ProposedEntry = Entry & { accrualOn?: string };
+
+/**
  * "archive": the entry is reversed. "correct": it is reversed and `entry`
  * recorded in its place, in the original author's name.
  */
-export type Proposal = { kind: "archive" } | { kind: "correct"; entry: Entry };
+export type Proposal =
+  { kind: "archive" } | { kind: "correct"; entry: ProposedEntry };
 
 export interface EntryBallotRequest {
   entryId: string;
@@ -76,6 +84,13 @@ export function assertCanOpenEntryBallot(context: EntryBallotContext): void {
   const accrualOn = ledger.find((e) => e.id === request.entryId)?.accrualOn;
   // Stryker disable next-line ConditionalExpression: equivalent; without a day, no period's comparisons hold, so nothing is refused either way.
   if (accrualOn !== undefined) assertPeriodOpen(accrualOn, context.periods);
+  // Nor does a correction go into one: it would change that settlement too.
+  const proposed =
+    request.proposal.kind === "correct"
+      ? request.proposal.entry.accrualOn
+      : undefined;
+  // Stryker disable next-line ConditionalExpression: equivalent, as above.
+  if (proposed !== undefined) assertPeriodOpen(proposed, context.periods);
 
   // Checked now as well as when it is approved: a proposal that can't be
   // applied isn't worth a week of voting.

@@ -230,6 +230,47 @@ describe("assertCanOpenEntryBallot", () => {
     );
   });
 
+  it("refuses a correction dated in a closed period: it would change that settlement too", () => {
+    const march: Period = {
+      startsOn: "2027-03-01",
+      endsOn: "2027-03-31",
+      closed: true,
+    };
+    const inApril = { ...cement, accrualOn: "2027-04-02" };
+    const correctTo = (accrualOn: string): EntryBallotRequest => ({
+      entryId: "e1",
+      reason: "Foi em outro mês",
+      proposal: {
+        kind: "correct",
+        entry: {
+          type: "expense",
+          amount: 35000n,
+          from: { partner: "A" },
+          accrualOn,
+        },
+      },
+    });
+    const refused = (accrualOn: string, periods: Period[]) =>
+      open([inApril], correctTo(accrualOn), [], false, periods);
+    expect(refused("2027-03-31", [march])).toBe("period-closed");
+    expect(
+      refused("2027-03-31", [{ ...march, closed: false }]),
+    ).toBeUndefined();
+    expect(refused("2027-04-01", [march])).toBeUndefined();
+    expect(
+      refusalMessage(() =>
+        assertCanOpenEntryBallot({
+          ledger: [inApril],
+          weights,
+          ballots: [],
+          request: correctTo("2027-03-15"),
+          settlementAnnounced: false,
+          periods: [march],
+        }),
+      ),
+    ).toContain("2027-03-15");
+  });
+
   it("refuses any new ballot once the final settlement is announced", () => {
     expect(open([cement], archive("e1"), [], true)).toBe(
       "settlement-announced",

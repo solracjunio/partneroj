@@ -31,6 +31,7 @@ export {
   type EntryBallotContext,
   type EntryBallotRequest,
   type Proposal,
+  type ProposedEntry,
 } from "./entry-ballot.js";
 export { assertPeriodOpen, type Period } from "./periods.js";
 export {
