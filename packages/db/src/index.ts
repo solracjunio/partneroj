@@ -24,6 +24,12 @@ export {
 } from "./expenses.js";
 export { findEntryDetails, type EntryDetailsRow } from "./entry-details.js";
 export {
+  castVote,
+  loadBallot,
+  VoteRefused,
+  type VoteRefusal,
+} from "./ballot-votes.js";
+export {
   EntryBallotRefused,
   openEntryBallot,
   type EntryBallotProposal,
