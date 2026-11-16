@@ -1,5 +1,5 @@
 // @ts-check
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import eslint from "@eslint/js";
 import prettier from "eslint-config-prettier";
@@ -11,14 +11,17 @@ import tseslint from "typescript-eslint";
 // straight in the tables: they check the guarantee, they don't use it.
 const testFiles = ["**/*.test.ts", "**/*.test.tsx", "**/testing.ts"];
 
-// What packages/db exports from its schema, read from the file itself so a
-// new table is in the rule without anybody remembering to add it.
-const schemaExports = [
-  ...readFileSync(
-    join(import.meta.dirname, "packages/db/src/schema.ts"),
-    "utf8",
-  ).matchAll(/^export const (\w+)/gm),
-].map(([, name]) => /** @type {string} */ (name));
+// What packages/db exports from its schema, read from the files themselves
+// so a new table is in the rule without anybody remembering to add it.
+const schemaDir = join(import.meta.dirname, "packages/db/src/schema");
+const schemaExports = readdirSync(schemaDir)
+  .filter((file) => file.endsWith(".ts"))
+  .flatMap((file) => [
+    ...readFileSync(join(schemaDir, file), "utf8").matchAll(
+      /^export const (\w+)/gm,
+    ),
+  ])
+  .map(([, name]) => /** @type {string} */ (name));
 
 const queriesStayInDb =
   "Queries live in packages/db, where each one has its partnership's WHERE (ADR 0008): add a function there.";
