@@ -2,7 +2,13 @@ import { and, eq, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { adminUsage, runAdminCommand } from "./admin-commands.js";
 import { previewInvite } from "./invites.js";
-import { auditLog, categories, invites, weights } from "./schema.js";
+import {
+  auditLog,
+  categories,
+  invites,
+  partnerships,
+  weights,
+} from "./schema.js";
 import {
   connectAsApp,
   startTestDatabase,
@@ -80,6 +86,14 @@ async function partnership(name: string) {
   };
 }
 
+async function ruleOf(partnershipId: string) {
+  const [row] = await t.db
+    .select({ rule: partnerships.entryBallotRule })
+    .from(partnerships)
+    .where(eq(partnerships.id, partnershipId));
+  return row!.rule;
+}
+
 describe("create-partnership", () => {
   it("creates it with every member and role, audited with no actor", async () => {
     const p = await partnership("Obra Um");
@@ -104,12 +118,72 @@ describe("create-partnership", () => {
     );
   });
 
+  it("decides ballots by majority, or as --ballot-rule says", async () => {
+    const byDefault = await partnership("Obra Maioria");
+    expect(await ruleOf(byDefault.id)).toBe("majority");
+    const lines = await admin([
+      "create-partnership",
+      "--name",
+      "Obra Unânime",
+      "--admin",
+      "Ana",
+      "--admin",
+      "Bruno",
+      "--ballot-rule",
+      "unanimity",
+    ]);
+    expect(await ruleOf(uuid.exec(lines[0]!)![0])).toBe("unanimity");
+  });
+
+  it("answers with the usage for a rule it doesn't know", async () => {
+    const args = ["create-partnership", "--name", "Obra Regra Errada"];
+    const admins = ["--admin", "Ana", "--admin", "Bruno"];
+    expect(
+      await failure(admin([...args, ...admins, "--ballot-rule", "todos"])),
+    ).toBe(adminUsage);
+  });
+
   it("passes on the domain's refusal of a single admin", async () => {
     const message = await failure(
       admin(["create-partnership", "--name", "Obra Só", "--admin", "Ana"]),
     );
     expect(message).not.toBe("no error");
     expect(message).not.toBe(adminUsage);
+  });
+});
+
+describe("set-ballot-rule", () => {
+  it("changes the rule, says from what to what, and only once", async () => {
+    const p = await partnership("Obra Troca");
+    expect(await admin(["set-ballot-rule", p.id, "unanimity"])).toEqual([
+      "entry ballots: majority -> unanimity",
+    ]);
+    expect(await ruleOf(p.id)).toBe("unanimity");
+    expect(await admin(["set-ballot-rule", p.id, "unanimity"])).toEqual([
+      "entry ballots: already unanimity",
+    ]);
+    const audited = await t.db
+      .select()
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.entityId, p.id),
+          eq(auditLog.action, "partnership.set_entry_ballot_rule"),
+          isNull(auditLog.actorId),
+        ),
+      );
+    expect(audited).toHaveLength(1);
+  });
+
+  it("answers with the usage without an id or with an unknown rule", async () => {
+    const p = await partnership("Obra Uso");
+    for (const args of [
+      ["set-ballot-rule"],
+      ["set-ballot-rule", p.id],
+      ["set-ballot-rule", p.id, "todos"],
+    ])
+      expect(await failure(admin(args))).toBe(adminUsage);
+    expect(await ruleOf(p.id)).toBe("majority");
   });
 });
 

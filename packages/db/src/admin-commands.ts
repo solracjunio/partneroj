@@ -9,6 +9,8 @@ import { createInvite } from "./invites.js";
 import {
   createPartnership,
   listMembers,
+  setEntryBallotRule,
+  type EntryBallotRule,
   type NewMember,
 } from "./partnerships.js";
 import {
@@ -28,6 +30,8 @@ export interface AdminOutput {
 export const adminUsage = `Usage:
   admin-cli create-partnership --name <name> --admin <name> --admin <name>
                                [--partner <name>]... [--reader <name>]...
+                               [--ballot-rule majority|unanimity]
+  admin-cli set-ballot-rule <partnership id> majority|unanimity
   admin-cli list-members
   admin-cli invite <member id>
   admin-cli create-project --partnership <id> --name <name> --starts-on <YYYY-MM-DD>
@@ -45,6 +49,14 @@ type AdminCommand = (
   args: string[],
 ) => Promise<void>;
 
+/** The rule given on the command line, or the usage when missing or unknown. */
+function ballotRule(value: string | undefined): EntryBallotRule {
+  if (value !== "majority" && value !== "unanimity") {
+    throw new Error(adminUsage);
+  }
+  return value;
+}
+
 /** Creates a partnership with its first members and prints their ids. */
 async function createPartnershipCommand(
   db: Database,
@@ -58,6 +70,7 @@ async function createPartnershipCommand(
       admin: { type: "string", multiple: true, default: [] },
       partner: { type: "string", multiple: true, default: [] },
       reader: { type: "string", multiple: true, default: [] },
+      "ballot-rule": { type: "string", default: "majority" },
     },
   });
   if (values.name === undefined) throw new Error(adminUsage);
@@ -69,6 +82,7 @@ async function createPartnershipCommand(
   const created = await createPartnership(db, {
     name: values.name,
     members: people,
+    entryBallotRule: ballotRule(values["ballot-rule"]),
     actorId: null,
   });
   print(`partnership ${created.id}`);
@@ -76,6 +90,26 @@ async function createPartnershipCommand(
     print(`  ${m.id}  ${m.role.padEnd(7)}  ${m.name}`);
   }
   print("next: admin-cli invite <member id>, for each member");
+}
+
+/** How the partnership's ballots on entries are decided (ADR 0004). */
+async function setBallotRuleCommand(
+  db: Database,
+  { print }: AdminOutput,
+  rest: string[],
+): Promise<void> {
+  const [partnershipId, rule] = rest;
+  if (partnershipId === undefined) throw new Error(adminUsage);
+  const { before, after } = await setEntryBallotRule(db, {
+    partnershipId,
+    rule: ballotRule(rule),
+    actorId: null,
+  });
+  print(
+    before === after
+      ? `entry ballots: already ${after}`
+      : `entry ballots: ${before} -> ${after}`,
+  );
 }
 
 /** Every member of every partnership, with the ids invite needs. */
@@ -204,6 +238,7 @@ async function inviteCommand(
  */
 const commands = new Map<string, AdminCommand>([
   ["create-partnership", createPartnershipCommand],
+  ["set-ballot-rule", setBallotRuleCommand],
   ["list-members", listMembersCommand],
   ["create-project", createProjectCommand],
   ["list-projects", listProjectsCommand],

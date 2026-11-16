@@ -127,6 +127,7 @@ function entryBallot(
     kind: "entry",
     entryId: s.entryId,
     proposal: "archive",
+    rule: "majority",
     openedBy: s.b,
     reason: "Não foi gasto da obra",
     closesAt: new Date(Date.now() + week),
@@ -189,6 +190,40 @@ describe("a ballot", () => {
       expect(
         await pgErrorCode(t.db.insert(ballots).values(entryBallot(s, values))),
       ).toBe("23514");
+  });
+
+  it("needs the rule it is decided by", async () => {
+    const s = await seed();
+    const withoutRule: Partial<typeof ballots.$inferInsert> = entryBallot(s);
+    delete withoutRule.rule;
+    const insert = t.db
+      .insert(ballots)
+      .values(withoutRule as typeof ballots.$inferInsert);
+    // 23502 not_null_violation: no default, the rule comes from the partnership.
+    expect(await pgErrorCode(insert)).toBe("23502");
+  });
+
+  it("is by unanimity only on an entry: a ballot on a member is by majority", async () => {
+    const s = await seed();
+    expect(await pgErrorCode(openBallot(s, { rule: "unanimity" }))).toBe(
+      "no error",
+    );
+    const onMember = {
+      kind: "member" as const,
+      entryId: null,
+      targetMemberId: s.c,
+      proposal: null,
+    };
+    expect(
+      await pgErrorCode(
+        t.db
+          .insert(ballots)
+          .values(entryBallot(s, { ...onMember, rule: "unanimity" })),
+      ),
+    ).toBe("23514");
+    expect(
+      await pgErrorCode(t.db.insert(ballots).values(entryBallot(s, onMember))),
+    ).toBe("no error");
   });
 
   it("closes after it opens", async () => {
@@ -261,6 +296,7 @@ describe("a ballot's record never changes", () => {
     const changes: Partial<typeof ballots.$inferInsert>[] = [
       { reason: "Outro motivo" },
       { proposal: "correct" },
+      { rule: "unanimity" },
       { closesAt: new Date(Date.now() + 2 * week) },
       { openedBy: s.c },
       { entryId: (await seed()).entryId },

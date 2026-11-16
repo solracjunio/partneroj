@@ -86,8 +86,16 @@ cli="docker compose -f infra/production/compose.yml run --rm --no-deps api node 
 **Criar a sociedade** (uma vez). Toda sociedade precisa de pelo menos 2 administradores (plano, seção 2):
 
 ```sh
-$cli create-partnership --name "<nome da obra>" --admin "<nome>" --admin "<nome>" [--partner "<nome>"] [--reader "<nome>"]
+$cli create-partnership --name "<nome da obra>" --admin "<nome>" --admin "<nome>" [--partner "<nome>"] [--reader "<nome>"] [--ballot-rule majority|unanimity]
 ```
+
+**Regra das votações sobre lançamentos** (ADR 0004): `majority` (mais da metade do eleitorado) ou `unanimity` (todos). Sem `--ballot-rule`, a sociedade nasce com `majority`. Para trocar depois:
+
+```sh
+$cli set-ballot-rule <id da sociedade> unanimity
+```
+
+O comando responde `entry ballots: majority -> unanimity`, ou `already unanimity` quando a regra já era essa (aí nada é gravado). A troca vai para a auditoria com o antes e o depois. Uma votação já aberta continua com a regra com que abriu, e só as próximas usam a nova. Votações sobre membros são sempre por maioria.
 
 **Criar o projeto** (a obra) com o peso de cada sócio. O id da sociedade aparece no fim de cada linha de `$cli list-members`. Os pesos são fixos durante todo o projeto (ADR 0002), e a ordem de desempate é sorteada na criação e impressa pelo comando. Leitores não têm peso.
 

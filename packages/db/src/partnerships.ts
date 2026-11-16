@@ -6,6 +6,10 @@ import { auditLog, members, partnerships } from "./schema.js";
 
 type Role = (typeof members.$inferSelect)["role"];
 
+/** How a ballot on an entry is decided (ADR 0004). */
+export type EntryBallotRule =
+  (typeof partnerships.$inferSelect)["entryBallotRule"];
+
 export interface NewMember {
   name: string;
   role: Role;
@@ -27,7 +31,13 @@ export const MIN_ADMINS = 2;
  */
 export async function createPartnership(
   db: Database,
-  input: { name: string; members: NewMember[]; actorId: string | null },
+  input: {
+    name: string;
+    members: NewMember[];
+    /** Majority when left out, as ADR 0004 says for a new partnership. */
+    entryBallotRule?: EntryBallotRule;
+    actorId: string | null;
+  },
 ): Promise<{ id: string; members: CreatedMember[] }> {
   const admins = input.members.filter((m) => m.role === "admin").length;
   if (admins < MIN_ADMINS) {
@@ -42,7 +52,10 @@ export async function createPartnership(
   return db.transaction(async (tx) => {
     const [partnership] = await tx
       .insert(partnerships)
-      .values({ name: input.name.trim() })
+      .values({
+        name: input.name.trim(),
+        entryBallotRule: input.entryBallotRule,
+      })
       .returning();
     const created = await tx
       .insert(members)
@@ -60,7 +73,10 @@ export async function createPartnership(
         actorId: input.actorId,
         action: "partnership.create",
         entityId: partnership!.id,
-        after: { name: partnership!.name },
+        after: {
+          name: partnership!.name,
+          entryBallotRule: partnership!.entryBallotRule,
+        },
       },
       ...created.map((m) => ({
         actorId: input.actorId,
@@ -91,4 +107,47 @@ export async function listMembers(db: Database): Promise<MemberListing[]> {
     .from(members)
     .innerJoin(partnerships, eq(partnerships.id, members.partnershipId))
     .orderBy(asc(partnerships.createdAt), asc(members.createdAt));
+}
+
+/**
+ * Changes how the partnership's ballots on entries are decided, audited in
+ * the same transaction. A ballot already open keeps the rule it opened
+ * with (ballots.rule is frozen). Asking for the rule it already has
+ * writes nothing.
+ */
+export async function setEntryBallotRule(
+  db: Database,
+  input: {
+    partnershipId: string;
+    rule: EntryBallotRule;
+    actorId: string | null;
+  },
+): Promise<{ before: EntryBallotRule; after: EntryBallotRule }> {
+  return db.transaction(async (tx) => {
+    // FOR UPDATE: two changes at once are applied one after the other,
+    // so each audit row's "before" is what the other left.
+    const [current] = await tx
+      .select({ rule: partnerships.entryBallotRule })
+      .from(partnerships)
+      .where(eq(partnerships.id, input.partnershipId))
+      .for("update");
+    if (current === undefined) {
+      throw new Error(`no partnership ${input.partnershipId}`);
+    }
+    const before = current.rule;
+    if (before === input.rule) return { before, after: before };
+
+    await tx
+      .update(partnerships)
+      .set({ entryBallotRule: input.rule })
+      .where(eq(partnerships.id, input.partnershipId));
+    await tx.insert(auditLog).values({
+      actorId: input.actorId,
+      action: "partnership.set_entry_ballot_rule",
+      entityId: input.partnershipId,
+      before: { entryBallotRule: before },
+      after: { entryBallotRule: input.rule },
+    });
+    return { before, after: input.rule };
+  });
 }
