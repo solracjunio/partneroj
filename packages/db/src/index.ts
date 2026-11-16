@@ -24,6 +24,14 @@ export {
 } from "./expenses.js";
 export { findEntryDetails, type EntryDetailsRow } from "./entry-details.js";
 export {
+  EntryBallotRefused,
+  openEntryBallot,
+  type EntryBallotProposal,
+  type EntryBallotRefusal,
+  type EntryBallotRequest,
+  type NewProposedEntry,
+} from "./entry-ballots.js";
+export {
   countUnread,
   listFeed,
   markFeedRead,
