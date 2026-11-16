@@ -21,11 +21,20 @@ import {
 } from "drizzle-orm/pg-core";
 import { createdAt, id } from "./columns.js";
 
+/** Same names as BallotRule in packages/domain. */
+export const ballotRule = pgEnum("ballot_rule", ["majority", "unanimity"]);
+
 export const partnerships = pgTable("partnerships", {
   id: id(),
   name: text().notNull(),
   /** Brazilian company id (CNPJ), when there is a company. */
   taxId: text(),
+  /**
+   * How a ballot on an entry is decided (ADR 0004): majority for a new
+   * partnership, unless whoever creates it says otherwise. Changed only
+   * by a server command (admin-cli set-ballot-rule), audited.
+   */
+  entryBallotRule: ballotRule().notNull().default("majority"),
   createdAt: createdAt(),
 });
 
@@ -279,6 +288,12 @@ export const ballots = pgTable(
     entryId: uuid().references(() => entries.id),
     targetMemberId: uuid().references(() => members.id),
     proposal: ballotProposal(),
+    /**
+     * Copied from the partnership when it opens, and frozen like the
+     * electorate: changing the partnership's rule doesn't change an open
+     * ballot. A ballot on a member is always by majority (ADR 0004).
+     */
+    rule: ballotRule().notNull(),
     openedBy: uuid()
       .notNull()
       .references(() => members.id),
@@ -297,6 +312,10 @@ export const ballots = pgTable(
       "ballots_target_by_kind",
       sql`(${t.kind} = 'entry' and ${t.entryId} is not null and ${t.targetMemberId} is null and ${t.proposal} is not null)
         or (${t.kind} = 'member' and ${t.targetMemberId} is not null and ${t.entryId} is null and ${t.proposal} is null)`,
+    ),
+    check(
+      "ballots_member_by_majority",
+      sql`${t.kind} = 'entry' or ${t.rule} = 'majority'`,
     ),
     check("ballots_closes_after_opening", sql`${t.closesAt} > ${t.openedAt}`),
     check(
