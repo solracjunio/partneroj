@@ -7,6 +7,8 @@ import type { Weight } from "./split.js";
 export type LedgerEntry = Entry & {
   id: string;
   category?: string;
+  /** The day of the period it belongs to, by accrual ("YYYY-MM-DD"). */
+  accrualOn?: string;
   /** Set on a reversal: the id of the entry it cancels. */
   reversalOf?: string;
   /** Why it was reversed; required on a reversal. */

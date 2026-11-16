@@ -66,6 +66,38 @@ export const projects = pgTable("projects", {
 });
 
 /**
+ * An accrual period of an ongoing project (plan section 3): once closed,
+ * its entries are locked and a correction goes into a later period. A
+ * construction has none; it is settled once, at the end.
+ *
+ * Migration 0011 adds what Drizzle can't declare: no two periods of a
+ * project share a day (EXCLUDE), and a row only goes from open to closed,
+ * once (trigger). The app can't delete a period.
+ */
+export const periods = pgTable(
+  "periods",
+  {
+    id: id(),
+    projectId: uuid()
+      .notNull()
+      .references(() => projects.id),
+    /** Both days included. */
+    startsOn: date({ mode: "string" }).notNull(),
+    endsOn: date({ mode: "string" }).notNull(),
+    closedBy: uuid().references(() => members.id),
+    closedAt: timestamp({ withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check("periods_ends_after_start", sql`${t.endsOn} >= ${t.startsOn}`),
+    check(
+      "periods_closed_by_and_at",
+      sql`(${t.closedBy} is null) = (${t.closedAt} is null)`,
+    ),
+  ],
+);
+
+/**
  * A member's weight in a project (docs/adr/0002). Fixed for the whole
  * project. drawPosition is the order drawn once when the project is
  * created; the domain takes them sorted by it to break ties.

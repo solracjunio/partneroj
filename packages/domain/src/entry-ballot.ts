@@ -3,6 +3,7 @@
 import type { Entry } from "./balances.js";
 import type { Outcome } from "./ballot.js";
 import { DomainError } from "./errors.js";
+import { assertPeriodOpen, type Period } from "./periods.js";
 import {
   assertCanRecord,
   createReversal,
@@ -36,6 +37,8 @@ export interface EntryBallotContext {
   request: EntryBallotRequest;
   /** Once the final settlement is announced, no new ballot opens. */
   settlementAnnounced: boolean;
+  /** The project's periods: an entry of a closed one can't be contested. */
+  periods: readonly Period[];
 }
 
 /**
@@ -67,6 +70,12 @@ export function assertCanOpenEntryBallot(context: EntryBallotContext): void {
       "already-contested",
       `${request.entryId} had its ballot`,
     );
+
+  // What a closed period settled never changes. An entry that doesn't
+  // exist is refused below, by createReversal's rules.
+  const accrualOn = ledger.find((e) => e.id === request.entryId)?.accrualOn;
+  // Stryker disable next-line ConditionalExpression: equivalent; without a day, no period's comparisons hold, so nothing is refused either way.
+  if (accrualOn !== undefined) assertPeriodOpen(accrualOn, context.periods);
 
   // Checked now as well as when it is approved: a proposal that can't be
   // applied isn't worth a week of voting.

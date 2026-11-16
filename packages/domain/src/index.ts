@@ -32,6 +32,7 @@ export {
   type EntryBallotRequest,
   type Proposal,
 } from "./entry-ballot.js";
+export { assertPeriodOpen, type Period } from "./periods.js";
 export {
   assertCanRecord,
   createReversal,

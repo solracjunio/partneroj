@@ -104,6 +104,7 @@ function toLedgerEntry(row: Entry): LedgerEntry {
   return {
     ...entry,
     id: row.id,
+    accrualOn: row.accrualOn,
     ...(row.reversalOf === null ? {} : { reversalOf: row.reversalOf }),
     ...(row.reversalReason === null ? {} : { reason: row.reversalReason }),
   };
