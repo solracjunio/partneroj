@@ -1,6 +1,7 @@
 // Opening a ballot on an entry (plan section 3, "Votação"): who may contest
 // what, and whether the proposal can be applied. The counting is ballot.ts.
 import type { Entry } from "./balances.js";
+import type { Outcome } from "./ballot.js";
 import { DomainError } from "./errors.js";
 import {
   assertCanRecord,
@@ -21,11 +22,17 @@ export interface EntryBallotRequest {
   proposal: Proposal;
 }
 
+/** A ballot on an entry: still open, or closed with its outcome. */
+export interface EarlierBallot {
+  entryId: string;
+  status: "open" | Outcome;
+}
+
 export interface EntryBallotContext {
   ledger: readonly LedgerEntry[];
   weights: readonly Weight[];
   /** The project's ballots on entries so far, open or closed. */
-  ballots: readonly { entryId: string; open: boolean }[];
+  ballots: readonly EarlierBallot[];
   request: EntryBallotRequest;
   /** Once the final settlement is announced, no new ballot opens. */
   settlementAnnounced: boolean;
@@ -49,12 +56,13 @@ export function assertCanOpenEntryBallot(context: EntryBallotContext): void {
       "The final settlement is announced: no new ballots",
     );
 
-  // Only one ballot per entry: a second, even after a rejection, would let
-  // anyone contest the same entry again and again.
-  const earlier = ballots.find((b) => b.entryId === request.entryId);
-  if (earlier?.open)
+  // Only one decided ballot per entry: a second, after a rejection, would
+  // let anyone contest the same entry again and again. "no-effect" is the
+  // exception: the majority won and only the balance stopped it.
+  const earlier = ballots.filter((b) => b.entryId === request.entryId);
+  if (earlier.some((b) => b.status === "open"))
     throw new DomainError("ballot-open", `${request.entryId} is in a vote`);
-  if (earlier !== undefined)
+  if (earlier.some((b) => b.status !== "no-effect"))
     throw new DomainError(
       "already-contested",
       `${request.entryId} had its ballot`,

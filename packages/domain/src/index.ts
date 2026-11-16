@@ -27,6 +27,7 @@ export {
 export {
   assertCanOpenEntryBallot,
   proposalApplies,
+  type EarlierBallot,
   type EntryBallotContext,
   type EntryBallotRequest,
   type Proposal,
