@@ -42,6 +42,7 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 15/11/2026 | 5 | 1,0 h* | Testes com os sócios movidos para o fim do projeto e importação da planilha retirada do plano (os sócios não vão usar planilha) (PR #78); fronteiras entre pacotes no lint, com o ADR 0008: domínio puro, consultas só no `packages/db`, tela sem banco, contratos só com zod, sem ciclos, cada regra conferida quebrando o código à mão (PR #79); "Fiz um gasto" dividido em três arquivos pelos motivos de mudança, sem mudar nenhum teste (PR #80); limite de 400 linhas de código por arquivo, com o tamanho no Summary (PR #81); `pnpm hotspots`, commits × linhas e os motivos de cada mudança, para o fechamento de bloco (PR #82) | Sim |
 | 15/11/2026 | 1B | 1,5 h* | Acerto final com o dinheiro das contas e o guloso, com no máximo n − 1 transferências (PR #83); ADR 0009 e busca exata do mínimo até 8 participantes, com o menor caso em que o guloso falha achado por força bruta e um oráculo independente nos testes (PR #84); apuração da votação por maioria ou unanimidade, com o encerramento vindo dos eventos para ser idempotente (PR #85); regras de abertura da votação, o lançamento corrigido sem estorno nem contestação e o build da API corrigido com os códigos de estorno separados (PR #86); mutação a 100% no domínio; quiz do bloco 1B (5/5) | Sim |
 | 16/11/2026 | 2B | 1,5 h* | Votação "sem efeito" pode ser aberta de novo sobre o mesmo lançamento (PR #88); períodos de apuração que só fecham, sem dois períodos de um projeto no mesmo dia, e sem votação sobre lançamento de período fechado (PR #89); esquema do banco dividido em um módulo por motivo de mudança, sem mudar nenhum teste (PR #90); votações, eleitorado, votos e lançamentos propostos gravados uma vez só, com uma votação valendo por lançamento salvo a "sem efeito" (PR #91); cada restrição e trigger conferidos quebrando a migration à mão; deploy conferido no banco de produção | Sim |
+| 16/11/2026 | 2B | 2,0 h* | Regra de votação por sociedade (maioria ou unanimidade), congelada em cada votação na abertura, e o comando `set-ballot-rule` no `admin-cli`, com auditoria; deploy e sociedade de produção passada para unanimidade (PR #93); correção com competência num período fechado recusada no domínio (PR #94); conversão de linha para lançamento do domínio compartilhada, sem mudar nenhum teste (PR #95); abertura de votação com o eleitorado do momento, a proposta e os ids da correção conferidos na sociedade (PR #96); voto enquanto a votação está aberta, pela apuração do domínio, e leitura da votação para a apuração (PR #97); mutação à mão em cada PR, que achou um teste de corrida que não corria e foi refeito segurando a primeira gravação | Sim |
 
 ## Total por bloco
 
@@ -51,6 +52,6 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 1A. Domínio dos sócios | 18 h | 2,0 h |
 | 1B. Domínio completo | 14 h | 1,5 h |
 | 2A. Persistência dos sócios | 15 h | 3,5 h |
-| 2B. Persistência completa | 8 h | 1,5 h (em andamento) |
+| 2B. Persistência completa | 8 h | 3,5 h (em andamento) |
 | Infra de produção | 12 h | 4,25 h |
 | Versão para os sócios | 30 h | 18,25 h |
