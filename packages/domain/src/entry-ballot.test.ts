@@ -6,6 +6,7 @@ import {
   type EntryBallotRequest,
 } from "./entry-ballot.js";
 import { DomainError, type DomainErrorCode } from "./errors.js";
+import type { Period } from "./periods.js";
 import type { LedgerEntry } from "./reversal.js";
 
 const weights = [
@@ -69,6 +70,7 @@ const open = (
   request: EntryBallotRequest,
   ballots: EarlierBallot[] = [],
   settlementAnnounced = false,
+  periods: Period[] = [],
 ) =>
   refusal(() =>
     assertCanOpenEntryBallot({
@@ -77,6 +79,7 @@ const open = (
       ballots,
       request,
       settlementAnnounced,
+      periods,
     }),
   );
 
@@ -150,6 +153,7 @@ describe("assertCanOpenEntryBallot", () => {
           ballots,
           request: archive("e1"),
           settlementAnnounced: false,
+          periods: [],
         }),
       ),
     ).toContain("e1");
@@ -168,6 +172,7 @@ describe("assertCanOpenEntryBallot", () => {
           ballots: [{ entryId: "e1", status: "rejected" }],
           request: archive("e1"),
           settlementAnnounced: false,
+          periods: [],
         }),
       ),
     ).toContain("e1");
@@ -203,6 +208,26 @@ describe("assertCanOpenEntryBallot", () => {
         { entryId: "e1", status: "open" },
       ]),
     ).toBe("ballot-open");
+  });
+
+  it("refuses an entry of a closed period: its settlement doesn't change", () => {
+    const march: Period = {
+      startsOn: "2027-03-01",
+      endsOn: "2027-03-31",
+      closed: true,
+    };
+    const inMarch = { ...cement, accrualOn: "2027-03-10" };
+    expect(open([inMarch], archive("e1"), [], false, [march])).toBe(
+      "period-closed",
+    );
+    expect(
+      open([inMarch], archive("e1"), [], false, [{ ...march, closed: false }]),
+    ).toBeUndefined();
+    // Only the contested entry's period counts.
+    const inApril = { ...cement, id: "e3", accrualOn: "2027-04-02" };
+    expect(open([inMarch, inApril], archive("e3"), [], false, [march])).toBe(
+      undefined,
+    );
   });
 
   it("refuses any new ballot once the final settlement is announced", () => {

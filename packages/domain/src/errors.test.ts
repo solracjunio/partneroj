@@ -20,6 +20,7 @@ describe("isReversalErrorCode", () => {
     "ballot-open",
     "already-contested",
     "settlement-announced",
+    "period-closed",
   ] as const)(
     "is false for %s, which only opening a ballot refuses with",
     (code) => {

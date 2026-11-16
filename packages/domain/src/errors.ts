@@ -16,7 +16,9 @@ export type DomainErrorCode =
   // Only when opening a ballot on an entry.
   | "ballot-open"
   | "already-contested"
-  | "settlement-announced";
+  | "settlement-announced"
+  // A date in a closed period.
+  | "period-closed";
 
 /**
  * Whether a refusal is one a reversal can get: a caller that only reverses
