@@ -85,6 +85,20 @@
       "when": 1794825943117,
       "tag": "0011_periods_locked",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794827059442,
+      "tag": "0012_ballots",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794827060082,
+      "tag": "0013_ballots_record_once",
+      "breakpoints": true
     }
   ]
 }

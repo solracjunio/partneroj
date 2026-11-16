@@ -1,17 +1,22 @@
 // The partnership's money and its rules: members, projects and their
-// periods, weights, accounts, categories and entries (plan section 7).
+// periods, weights, accounts, categories, entries and the ballots that
+// contest them (plan section 7).
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   bigint,
+  boolean,
   check,
   date,
+  foreignKey,
   integer,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { createdAt, id } from "./columns.js";
@@ -200,6 +205,12 @@ export const entries = pgTable(
     reversalOf: uuid().references((): AnyPgColumn => entries.id),
     reversalReason: text(),
     /**
+     * The ballot that created it: the corrected entry, or the reversal an
+     * approved ballot recorded. Such an entry can't be reversed or
+     * contested (plan section 3).
+     */
+    createdByBallotId: uuid().references((): AnyPgColumn => ballots.id),
+    /**
      * Chosen by the phone for one draft and sent again when the save is
      * retried, so a save whose answer was lost is not recorded twice.
      */
@@ -225,8 +236,168 @@ export const entries = pgTable(
       t.idempotencyKey,
     ),
     check(
+      "entries_ballot_source",
+      sql`(${t.source} = 'ballot') = (${t.createdByBallotId} is not null)`,
+    ),
+    check(
       "entries_reversal_reason_required",
       sql`${t.reversalOf} is null or (${t.reversalReason} is not null and trim(${t.reversalReason}) <> '')`,
     ),
+  ],
+);
+
+export const ballotKind = pgEnum("ballot_kind", ["entry", "member"]);
+
+/** Same names as Proposal["kind"] in packages/domain. */
+export const ballotProposal = pgEnum("ballot_proposal", ["archive", "correct"]);
+
+/** Same names as Outcome in packages/domain. */
+export const ballotOutcome = pgEnum("ballot_outcome", [
+  "approved",
+  "rejected",
+  "moot",
+  "no-effect",
+]);
+
+/**
+ * A ballot (plan section 3, "Votação"), on an entry or on a member. The
+ * domain counts it (tallyBallot); this records what was asked, and the
+ * outcome once. Migration 0013 adds the trigger: a row only goes from open
+ * to closed, once, and nothing else in it ever changes. The app can't
+ * delete one.
+ *
+ * What a ballot on a member proposes comes with those ballots (block 4).
+ */
+export const ballots = pgTable(
+  "ballots",
+  {
+    id: id(),
+    partnershipId: uuid()
+      .notNull()
+      .references(() => partnerships.id),
+    kind: ballotKind().notNull(),
+    entryId: uuid().references(() => entries.id),
+    targetMemberId: uuid().references(() => members.id),
+    proposal: ballotProposal(),
+    openedBy: uuid()
+      .notNull()
+      .references(() => members.id),
+    reason: text().notNull(),
+    openedAt: createdAt(),
+    /** 7 days after it opened (closesAt in packages/domain). */
+    closesAt: timestamp({ withTimezone: true }).notNull(),
+    outcome: ballotOutcome(),
+    /** Why it had no effect, for example the account it would overdraw. */
+    outcomeReason: text(),
+    closedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    check("ballots_reason_required", sql`trim(${t.reason}) <> ''`),
+    check(
+      "ballots_target_by_kind",
+      sql`(${t.kind} = 'entry' and ${t.entryId} is not null and ${t.targetMemberId} is null and ${t.proposal} is not null)
+        or (${t.kind} = 'member' and ${t.targetMemberId} is not null and ${t.entryId} is null and ${t.proposal} is null)`,
+    ),
+    check("ballots_closes_after_opening", sql`${t.closesAt} > ${t.openedAt}`),
+    check(
+      "ballots_outcome_and_closed_at",
+      sql`(${t.outcome} is null) = (${t.closedAt} is null)`,
+    ),
+    check(
+      "ballots_outcome_reason_with_outcome",
+      sql`${t.outcomeReason} is null or ${t.outcome} is not null`,
+    ),
+    // One open or decided ballot per entry; only "no-effect" frees it,
+    // since the majority won and only the balance stopped it. An open
+    // ballot has a null outcome, which is distinct from 'no-effect'.
+    uniqueIndex("ballots_entry_once")
+      .on(t.entryId)
+      .where(sql`${t.outcome} is distinct from 'no-effect'`),
+    // For ballot_proposed_entries to reference only a correction.
+    unique("ballots_id_proposal_unique").on(t.id, t.proposal),
+  ],
+);
+
+/**
+ * The entry a correction proposes, recorded in the original author's name
+ * when the ballot is approved. Same sides and checks as entries. Only a
+ * "correct" ballot can have one: the foreign key goes through
+ * (ballot_id, proposal), and proposal here can only be 'correct'.
+ * Insert-only (migration 0013).
+ */
+export const ballotProposedEntries = pgTable(
+  "ballot_proposed_entries",
+  {
+    ballotId: uuid().primaryKey(),
+    proposal: ballotProposal().notNull().default("correct"),
+    type: entryType().notNull(),
+    /** Cents (ADR 0005). */
+    amount: bigint({ mode: "bigint" }).notNull(),
+    occurredOn: date({ mode: "string" }).notNull(),
+    accrualOn: date({ mode: "string" }).notNull(),
+    fromMemberId: uuid().references(() => members.id),
+    fromAccountId: uuid().references(() => accounts.id),
+    toMemberId: uuid().references(() => members.id),
+    toAccountId: uuid().references(() => accounts.id),
+    categoryId: uuid().references(() => categories.id),
+    description: text(),
+  },
+  (t) => [
+    foreignKey({
+      name: "ballot_proposed_entries_correction_fk",
+      columns: [t.ballotId, t.proposal],
+      foreignColumns: [ballots.id, ballots.proposal],
+    }),
+    check(
+      "ballot_proposed_entries_only_correct",
+      sql`${t.proposal} = 'correct'`,
+    ),
+    check("ballot_proposed_entries_amount_positive", sql`${t.amount} > 0`),
+    check(
+      "ballot_proposed_entries_one_party_per_side",
+      sql`num_nonnulls(${t.fromMemberId}, ${t.fromAccountId}) <= 1
+        and num_nonnulls(${t.toMemberId}, ${t.toAccountId}) <= 1`,
+    ),
+  ],
+);
+
+/**
+ * Who may vote: frozen when the ballot opens (plan section 3). Members
+ * who join, leave or change role later don't change it. Insert-only
+ * (migration 0013).
+ */
+export const ballotVoters = pgTable(
+  "ballot_voters",
+  {
+    ballotId: uuid()
+      .notNull()
+      .references(() => ballots.id),
+    memberId: uuid()
+      .notNull()
+      .references(() => members.id),
+  },
+  (t) => [primaryKey({ columns: [t.ballotId, t.memberId] })],
+);
+
+/**
+ * One vote per voter, yes or no, never changed. The foreign key to
+ * ballot_voters keeps out anyone outside the frozen electorate.
+ * Insert-only (migration 0013).
+ */
+export const votes = pgTable(
+  "votes",
+  {
+    ballotId: uuid().notNull(),
+    memberId: uuid().notNull(),
+    approve: boolean().notNull(),
+    castAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.ballotId, t.memberId] }),
+    foreignKey({
+      name: "votes_voter_fk",
+      columns: [t.ballotId, t.memberId],
+      foreignColumns: [ballotVoters.ballotId, ballotVoters.memberId],
+    }),
   ],
 );

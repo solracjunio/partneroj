@@ -107,5 +107,8 @@ function toLedgerEntry(row: Entry): LedgerEntry {
     accrualOn: row.accrualOn,
     ...(row.reversalOf === null ? {} : { reversalOf: row.reversalOf }),
     ...(row.reversalReason === null ? {} : { reason: row.reversalReason }),
+    ...(row.createdByBallotId === null
+      ? {}
+      : { createdByBallot: row.createdByBallotId }),
   };
 }
