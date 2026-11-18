@@ -25,6 +25,7 @@ import {
 } from "@partneroj/db";
 
 import { DATABASE } from "../database/database.module.js";
+import { isUuid } from "../validation/uuid.js";
 import { isToken, sessionCookie } from "./cookies.js";
 import { describeDevice } from "./device.js";
 import { CurrentMember, SessionGuard } from "./session.guard.js";
@@ -36,8 +37,6 @@ export interface Me {
   name: string;
   role: SessionMember["role"];
 }
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The invite (plan section 6). An invite that can't be used answers 404
@@ -102,7 +101,7 @@ export class SessionsController {
     @Param("memberId") memberId: string,
   ): Promise<{ token: string; expiresAt: Date }> {
     if (actor.role !== "admin") throw new ForbiddenException();
-    const invite = UUID.test(memberId)
+    const invite = isUuid(memberId)
       ? await inviteMember(this.db, {
           actorId: actor.memberId,
           partnershipId: actor.partnershipId,
@@ -121,7 +120,7 @@ export class SessionsController {
     @Param("memberId") memberId: string,
   ): Promise<{ revoked: number }> {
     if (actor.role !== "admin") throw new ForbiddenException();
-    const revoked = UUID.test(memberId)
+    const revoked = isUuid(memberId)
       ? await revokeSessions(this.db, {
           actorId: actor.memberId,
           partnershipId: actor.partnershipId,

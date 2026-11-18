@@ -24,6 +24,7 @@ import {
   startTestDatabase,
   type AppConnection,
   type TestDatabase,
+  waitForALockWait,
 } from "./testing.js";
 
 // Accounts and categories are the partnership's own lists (plan section 8).
@@ -162,18 +163,6 @@ async function refusal(promise: Promise<unknown>): Promise<string> {
   }
 }
 
-/** Waits until some session is blocked on a lock, as on a locked row. */
-async function waitForALockWait(): Promise<void> {
-  for (let i = 0; i < 100; i++) {
-    const { rows } = await t.db.$client.query(
-      "select 1 from pg_stat_activity where wait_event_type = 'Lock'",
-    );
-    if (rows.length > 0) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  throw new Error("no session ever waited on a lock");
-}
-
 const kinds: ChoiceKind[] = ["account", "category"];
 
 describe.each(kinds)("a %s", (kind) => {
@@ -254,7 +243,7 @@ describe.each(kinds)("a %s", (kind) => {
     await t.db.transaction(async (tx) => {
       await tx.update(table).set({ name: "Cofre" }).where(eq(table.id, id));
       pending = renameChoice(app.db, actor, kind, id, "Banco");
-      await waitForALockWait();
+      await waitForALockWait(t);
     });
     await pending;
     expect((await auditOf(id)).at(-1)!.before).toEqual({ name: "Cofre" });

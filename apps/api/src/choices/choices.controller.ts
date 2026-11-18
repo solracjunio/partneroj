@@ -37,9 +37,8 @@ import {
 
 import { CurrentMember, SessionGuard } from "../auth/session.guard.js";
 import { DATABASE } from "../database/database.module.js";
+import { isUuid } from "../validation/uuid.js";
 import { ZodBody } from "../validation/zod-body.pipe.js";
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const toChoice = (row: ChoiceRow): Choice => ({
   id: row.id,
@@ -139,7 +138,7 @@ export class ChoicesController {
   ): Promise<Choice> {
     if (actor.role !== "admin") throw new ForbiddenException();
     // Not an id: no row has it, the same as another partnership's.
-    if (!UUID.test(id)) throw new NotFoundException("not-found");
+    if (!isUuid(id)) throw new NotFoundException("not-found");
     const changed =
       "name" in body
         ? renameChoice(this.db, actor, kind, id, body.name)

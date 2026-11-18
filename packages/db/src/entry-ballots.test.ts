@@ -24,6 +24,7 @@ import {
   startTestDatabase,
   type AppConnection,
   type TestDatabase,
+  waitForALockWait,
 } from "./testing.js";
 
 let t: TestDatabase;
@@ -136,18 +137,6 @@ const correct = (s: Seed, entry: Partial<NewProposedEntry> = {}) => ({
   reason: "O valor certo é R$ 305,00",
   proposal: { kind: "correct" as const, entry: { ...corrected(s), ...entry } },
 });
-
-/** Waits until some session is blocked on a lock, as on the unique index. */
-async function waitForALockWait(): Promise<void> {
-  for (let i = 0; i < 100; i++) {
-    const { rows } = await t.db.$client.query(
-      "select 1 from pg_stat_activity where wait_event_type = 'Lock'",
-    );
-    if (rows.length > 0) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  throw new Error("no session ever waited on a lock");
-}
 
 async function refusal(promise: Promise<unknown>): Promise<string> {
   try {
@@ -581,7 +570,7 @@ describe("openEntryBallot and the earlier ballots", () => {
         closesAt: new Date(Date.now() + 7 * DAY_MS),
       });
       pending = refusal(openEntryBallot(app.db, s.caio, archive(s)));
-      await waitForALockWait();
+      await waitForALockWait(t);
     });
     expect(await pending).toBe("ballot-open");
     const { ballots: rows, voters } = await written(s);

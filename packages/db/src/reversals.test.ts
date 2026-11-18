@@ -19,6 +19,7 @@ import {
   startTestDatabase,
   type AppConnection,
   type TestDatabase,
+  waitForALockWait,
 } from "./testing.js";
 
 let t: TestDatabase;
@@ -189,18 +190,6 @@ describe("reverseEntry", () => {
   });
 });
 
-/** Waits until some session is blocked on a lock, as on a locked row. */
-async function waitForALockWait(): Promise<void> {
-  for (let i = 0; i < 100; i++) {
-    const { rows } = await t.db.$client.query(
-      "select 1 from pg_stat_activity where wait_event_type = 'Lock'",
-    );
-    if (rows.length > 0) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  throw new Error("no session ever waited on a lock");
-}
-
 describe("reverseEntry and archived accounts", () => {
   /**
    * João puts R$ 100 in the cash box and moves it to the bank: the box is
@@ -282,7 +271,7 @@ describe("reverseEntry and archived accounts", () => {
         .set({ archivedAt: new Date() })
         .where(eq(accounts.id, s.box.id));
       pending = refusal(undo(s.joao, s.transfer.id));
-      await waitForALockWait();
+      await waitForALockWait(t);
     });
     expect(await pending).toBe("account-archived");
     expect(await reversalsOf(s.transfer.id)).toHaveLength(0);
