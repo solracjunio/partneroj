@@ -17,7 +17,11 @@ export const choiceName = z
   .refine((name) => {
     const length = [...name].length;
     return length >= 1 && length <= MAX_CHOICE_NAME_LENGTH;
-  }, `1 to ${MAX_CHOICE_NAME_LENGTH} characters`);
+  }, `1 to ${MAX_CHOICE_NAME_LENGTH} characters`)
+  // For the API documentation, which can't read a refine: JSON Schema
+  // counts minLength and maxLength by character too, so these are the
+  // same bounds, not an approximation.
+  .meta({ minLength: 1, maxLength: MAX_CHOICE_NAME_LENGTH });
 
 /** A new account or category. */
 export const newChoice = z.object({ name: choiceName });
