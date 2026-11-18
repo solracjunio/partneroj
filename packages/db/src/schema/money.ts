@@ -128,18 +128,40 @@ export const weights = pgTable(
 );
 
 /**
+ * The name of an account or category, as it shows on a button: no space
+ * at either end, and from 1 to 60 characters (not bytes).
+ */
+const buttonName = (name: AnyPgColumn) =>
+  sql`${name} = btrim(${name}) AND char_length(${name}) BETWEEN 1 AND 60`;
+
+/**
+ * When an account or category left the buttons. Entries point at it and
+ * never change, so it is archived instead of deleted (migration 0016),
+ * and archiving it again later is the same as restoring it first.
+ */
+const archivedAt = () => timestamp({ withTimezone: true });
+
+/**
  * A bank account or cash box of the partnership. There is no balance
  * column: the balance is always derived from entries, so an account
  * always starts at zero and money in it always has an owner (ADR 0007).
  */
-export const accounts = pgTable("accounts", {
-  id: id(),
-  partnershipId: uuid()
-    .notNull()
-    .references(() => partnerships.id),
-  name: text().notNull(),
-  createdAt: createdAt(),
-});
+export const accounts = pgTable(
+  "accounts",
+  {
+    id: id(),
+    partnershipId: uuid()
+      .notNull()
+      .references(() => partnerships.id),
+    name: text().notNull(),
+    createdAt: createdAt(),
+    archivedAt: archivedAt(),
+  },
+  (t) => [
+    unique("accounts_name_per_partnership_unique").on(t.partnershipId, t.name),
+    check("accounts_name_shape", buttonName(t.name)),
+  ],
+);
 
 export const categories = pgTable(
   "categories",
@@ -149,12 +171,14 @@ export const categories = pgTable(
       .notNull()
       .references(() => partnerships.id),
     name: text().notNull(),
+    archivedAt: archivedAt(),
   },
   (t) => [
     unique("categories_name_per_partnership_unique").on(
       t.partnershipId,
       t.name,
     ),
+    check("categories_name_shape", buttonName(t.name)),
   ],
 );
 
