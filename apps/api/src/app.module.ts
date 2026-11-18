@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { AuthModule } from "./auth/auth.module.js";
 import { BalancesModule } from "./balances/balances.module.js";
+import { ChoicesModule } from "./choices/choices.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { EntriesModule } from "./entries/entries.module.js";
 import { FeedModule } from "./feed/feed.module.js";
@@ -16,6 +17,7 @@ import { ReceiptsModule } from "./receipts/receipts.module.js";
     JobsModule,
     AuthModule,
     BalancesModule,
+    ChoicesModule,
     EntriesModule,
     FeedModule,
     NotificationsModule,
