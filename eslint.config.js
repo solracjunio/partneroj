@@ -171,5 +171,26 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // One copy of each small helper: copies drift apart. Each lives in the
+    // module the message names, and only there.
+    files: ["apps/**/*.{ts,tsx}", "packages/**/*.{ts,tsx}"],
+    ignores: ["apps/api/src/validation/uuid.ts", "packages/db/src/testing.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "VariableDeclarator[id.name='UUID']",
+          message:
+            "Check an id with isUuid from apps/api/src/validation/uuid.ts.",
+        },
+        {
+          selector: "FunctionDeclaration[id.name='waitForALockWait']",
+          message:
+            "Use waitForALockWait from packages/db/src/testing.ts (@partneroj/db/testing).",
+        },
+      ],
+    },
+  },
   prettier,
 );

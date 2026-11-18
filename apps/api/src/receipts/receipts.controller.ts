@@ -26,14 +26,13 @@ import {
 
 import { CurrentMember, SessionGuard } from "../auth/session.guard.js";
 import { DATABASE } from "../database/database.module.js";
+import { isUuid } from "../validation/uuid.js";
 import { normalizeReceipt, ReceiptRejected } from "./normalize.js";
 import { mayAddReceipt } from "./rules.js";
 import { RECEIPT_STORAGE, type ReceiptStorage } from "./storage.js";
 
 /** Same limit as Caddy's request_body and the receipts table's check. */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Reads the raw request body, refusing more than the limit as soon as it
@@ -76,7 +75,7 @@ export class ReceiptsController {
     // Before reading the body: nothing is processed or stored for an
     // entry that is not the member's partnership's, nor by someone who
     // didn't record it.
-    const entry = UUID.test(entryId)
+    const entry = isUuid(entryId)
       ? await findEntryForReceipt(this.db, scope)
       : null;
     if (entry === null) throw new NotFoundException();
@@ -124,7 +123,7 @@ export class ReceiptsController {
     @CurrentMember() member: SessionMember,
     @Param("receiptId") receiptId: string,
   ): Promise<StreamableFile> {
-    const receipt = UUID.test(receiptId)
+    const receipt = isUuid(receiptId)
       ? await findReceipt(this.db, {
           receiptId,
           partnershipId: member.partnershipId,

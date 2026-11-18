@@ -71,3 +71,21 @@ export async function pgErrorCode(promise: Promise<unknown>): Promise<string> {
   }
   return "no error";
 }
+
+/**
+ * Waits until some session is blocked on a lock, as on a locked row or a
+ * unique index. A race test holds the first change uncommitted, starts
+ * the second, waits here until it is seen waiting, and only then commits:
+ * two short transactions in a Promise.all would just run one after the
+ * other, and test no race at all.
+ */
+export async function waitForALockWait(t: TestDatabase): Promise<void> {
+  for (let i = 0; i < 100; i++) {
+    const { rows } = await t.db.$client.query(
+      "select 1 from pg_stat_activity where wait_event_type = 'Lock'",
+    );
+    if (rows.length > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("no session ever waited on a lock");
+}

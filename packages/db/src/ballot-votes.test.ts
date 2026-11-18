@@ -10,6 +10,7 @@ import {
   startTestDatabase,
   type AppConnection,
   type TestDatabase,
+  waitForALockWait,
 } from "./testing.js";
 
 let t: TestDatabase;
@@ -109,18 +110,6 @@ const vote = (
 
 const votesOf = (s: Seed) =>
   t.db.select().from(votes).where(eq(votes.ballotId, s.ballotId));
-
-/** Waits until some session is blocked on a lock, as on a primary key. */
-async function waitForALockWait(): Promise<void> {
-  for (let i = 0; i < 100; i++) {
-    const { rows } = await t.db.$client.query(
-      "select 1 from pg_stat_activity where wait_event_type = 'Lock'",
-    );
-    if (rows.length > 0) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  throw new Error("no session ever waited on a lock");
-}
 
 describe("loadBallot", () => {
   it("gives the domain's ballot: rule, frozen electorate, deadline and votes", async () => {
@@ -298,7 +287,7 @@ describe("castVote", () => {
         approve: true,
       });
       pending = vote(s, s.caio, "no");
-      await waitForALockWait();
+      await waitForALockWait(t);
     });
     expect(await pending).toBe("already-voted");
     expect((await votesOf(s)).map((r) => r.approve)).toEqual([true]);

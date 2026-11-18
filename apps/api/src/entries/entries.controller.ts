@@ -41,9 +41,8 @@ import { CurrentMember, SessionGuard } from "../auth/session.guard.js";
 import { DATABASE } from "../database/database.module.js";
 import { JOB_QUEUE } from "../jobs/jobs.module.js";
 import { mayAddReceipt } from "../receipts/rules.js";
+import { isUuid } from "../validation/uuid.js";
 import { ZodBody } from "../validation/zod-body.pipe.js";
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Controller()
 @UseGuards(SessionGuard)
@@ -74,7 +73,7 @@ export class EntriesController {
     @CurrentMember() member: SessionMember,
     @Param("entryId") entryId: string,
   ): Promise<EntryDetails> {
-    const row = UUID.test(entryId)
+    const row = isUuid(entryId)
       ? await findEntryDetails(this.db, {
           entryId,
           partnershipId: member.partnershipId,
@@ -171,7 +170,7 @@ export class EntriesController {
     @Param("entryId") entryId: string,
     @Body(new ZodBody(reverseEntryBody)) body: ReverseEntryBody,
   ): Promise<RecordedReversal> {
-    if (!UUID.test(entryId)) throw new NotFoundException("entry-not-found");
+    if (!isUuid(entryId)) throw new NotFoundException("entry-not-found");
     try {
       const row = await reverseEntry(
         this.db,
