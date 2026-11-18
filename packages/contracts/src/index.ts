@@ -1,6 +1,17 @@
 // Zod schemas and types shared by the API and the web app.
 export type { PartnerBalance, ProjectBalances } from "./balances.js";
 export {
+  choiceChange,
+  choiceListQuery,
+  choiceName,
+  MAX_CHOICE_NAME_LENGTH,
+  newChoice,
+  type Choice,
+  type ChoiceChange,
+  type ChoiceListQuery,
+  type NewChoice,
+} from "./choices.js";
+export {
   amountCents,
   idempotencyKey,
   idempotencyKeyHeader,
