@@ -4,6 +4,7 @@ import { AuthModule } from "./auth/auth.module.js";
 import { BalancesModule } from "./balances/balances.module.js";
 import { ChoicesModule } from "./choices/choices.module.js";
 import { DatabaseModule } from "./database/database.module.js";
+import { DocsModule } from "./docs/docs.module.js";
 import { EntriesModule } from "./entries/entries.module.js";
 import { FeedModule } from "./feed/feed.module.js";
 import { HealthController } from "./health/health.controller.js";
@@ -18,6 +19,7 @@ import { ReceiptsModule } from "./receipts/receipts.module.js";
     AuthModule,
     BalancesModule,
     ChoicesModule,
+    DocsModule,
     EntriesModule,
     FeedModule,
     NotificationsModule,
