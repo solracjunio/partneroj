@@ -6,8 +6,9 @@ export default defineConfig({
     hookTimeout: 120_000,
     // Each test file starts its own Postgres container. With one worker per
     // core (11 on a 12-core machine), Docker sometimes didn't bind a
-    // container's port within the 120 s; at most 6 at once it does. The CI
-    // runner has fewer cores than that, so this changes nothing there.
-    maxWorkers: 6,
+    // container's port within the 120 s; at most 6 at once it does. The
+    // limit is in the package's "test" script, not here: the root coverage
+    // run reads this file as one of its projects, and Vitest refuses
+    // projects with different maxWorkers in one run (it has its own).
   },
 });
