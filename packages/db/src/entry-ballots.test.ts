@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { archiveChoice, createChoice } from "./accounts-categories.js";
 import {
   EntryBallotRefused,
   openEntryBallot,
@@ -357,6 +358,93 @@ describe("openEntryBallot refuses, writing nothing", () => {
         ),
       ),
     ).toBe("category-not-found");
+    await expectNothingWritten(s);
+  });
+
+  // Their buttons are gone: the same answer as an account or category
+  // that isn't the partnership's.
+  it("a correction with an archived account or category", async () => {
+    const s = await seed();
+    const bank = await createChoice(app.db, s.ana, "account", "Banco");
+    await archiveChoice(app.db, s.ana, "account", s.accountId);
+    expect(
+      await refusal(
+        openEntryBallot(
+          app.db,
+          s.bruno,
+          correct(s, { fromMemberId: null, fromAccountId: s.accountId }),
+        ),
+      ),
+    ).toBe("account-not-found");
+    expect(
+      await refusal(
+        openEntryBallot(
+          app.db,
+          s.bruno,
+          correct(s, {
+            type: "transfer",
+            fromMemberId: null,
+            categoryId: null,
+            fromAccountId: bank.id,
+            toAccountId: s.accountId,
+          }),
+        ),
+      ),
+    ).toBe("account-not-found");
+    await archiveChoice(app.db, s.ana, "category", s.categoryId);
+    expect(await refusal(openEntryBallot(app.db, s.bruno, correct(s)))).toBe(
+      "category-not-found",
+    );
+    await expectNothingWritten(s);
+  });
+
+  // Approving it would reverse the entry, and the reversal would move
+  // money through the archived account: the same refusal as an undo.
+  it("a ballot on an entry through an archived account", async () => {
+    const s = await seed();
+    const bank = await createChoice(app.db, s.ana, "account", "Banco");
+    const base = {
+      projectId: s.projectId,
+      occurredOn: "2027-01-13",
+      accrualOn: "2027-01-13",
+      authorId: s.ana.memberId,
+      source: "app" as const,
+      amount: 10000n,
+    };
+    const [contribution] = await t.db
+      .insert(entries)
+      .values({
+        ...base,
+        type: "contribution",
+        fromMemberId: s.ana.memberId,
+        toAccountId: s.accountId,
+      })
+      .returning();
+    const [transfer] = await t.db
+      .insert(entries)
+      .values({
+        ...base,
+        type: "transfer",
+        fromAccountId: s.accountId,
+        toAccountId: bank.id,
+      })
+      .returning();
+    await archiveChoice(app.db, s.ana, "account", s.accountId);
+    // The account is the transfer's "from" side and the contribution's "to".
+    for (const entry of [transfer!, contribution!]) {
+      const onIt = { ...archive(s), entryId: entry.id };
+      expect(await refusal(openEntryBallot(app.db, s.bruno, onIt))).toBe(
+        "account-archived",
+      );
+    }
+    expect(
+      await refusal(
+        openEntryBallot(app.db, s.bruno, {
+          ...correct(s),
+          entryId: transfer!.id,
+        }),
+      ),
+    ).toBe("account-archived");
     await expectNothingWritten(s);
   });
 

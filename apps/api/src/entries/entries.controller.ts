@@ -193,10 +193,12 @@ export class EntriesController {
         case "not-author":
           throw new ForbiddenException(error.reason);
         // The entry's state forbids it: already undone, itself an undo, or
-        // the correction a ballot made.
+        // the correction a ballot made; or one of its accounts is archived,
+        // and an admin restores it first.
         case "already-reversed":
         case "reversal-of-reversal":
         case "corrected-by-ballot":
+        case "account-archived":
           throw new ConflictException(error.reason);
         case "reason-required":
         case "account-overdrawn":

@@ -1,8 +1,9 @@
 // A pocket expense (plan section 5, "Fiz um gasto"): the partner paid
 // with their own money, so it counts as their contribution and the
 // expense is split among everyone by weight.
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
+import { listChoices } from "./accounts-categories.js";
 import type { Database } from "./client.js";
 import type { Transaction } from "./jobs.js";
 import { isUniqueViolation } from "./pg-errors.js";
@@ -27,12 +28,12 @@ export async function currentProject(
 ): Promise<ProjectForEntries | null> {
   const project = await newestProject(db, partnershipId);
   if (project === null) return null;
-  const buttons = await db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(eq(categories.partnershipId, partnershipId))
-    .orderBy(asc(categories.name));
-  return { project, categories: buttons };
+  // The buttons: the archived categories are left out.
+  const buttons = await listChoices(db, partnershipId, "category");
+  return {
+    project,
+    categories: buttons.map(({ id, name }) => ({ id, name })),
+  };
 }
 
 /**
@@ -143,6 +144,10 @@ async function recordIn(
       and(
         eq(categories.id, expense.categoryId),
         eq(categories.partnershipId, payer.partnershipId),
+        // Its button is gone: only a screen left open can still send it.
+        // An expense moments before the archive is no harm: a category
+        // holds no money, so there is nothing to lock here.
+        isNull(categories.archivedAt),
       ),
     );
   if (category === undefined) throw new ExpenseRefused("category-not-found");

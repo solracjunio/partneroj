@@ -1,12 +1,19 @@
 import { eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { archiveChoice, createChoice } from "./accounts-categories.js";
 import { recordExpense } from "./expenses.js";
 import { installJobQueue, queues, startJobQueue } from "./jobs.js";
 import { createPartnership } from "./partnerships.js";
 import { addCategories, createProject } from "./projects.js";
 import { ReversalRefused, reverseEntry } from "./reversals.js";
-import { activities, auditLog, categories, entries } from "./schema.js";
+import {
+  accounts,
+  activities,
+  auditLog,
+  categories,
+  entries,
+} from "./schema.js";
 import {
   connectAsApp,
   startTestDatabase,
@@ -179,5 +186,105 @@ describe("reverseEntry", () => {
     ]);
     expect(results.sort()).toEqual(["already-reversed", "reversed"]);
     expect(await reversalsOf(s.expense.id)).toHaveLength(1);
+  });
+});
+
+/** Waits until some session is blocked on a lock, as on a locked row. */
+async function waitForALockWait(): Promise<void> {
+  for (let i = 0; i < 100; i++) {
+    const { rows } = await t.db.$client.query(
+      "select 1 from pg_stat_activity where wait_event_type = 'Lock'",
+    );
+    if (rows.length > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("no session ever waited on a lock");
+}
+
+describe("reverseEntry and archived accounts", () => {
+  /**
+   * João puts R$ 100 in the cash box and moves it to the bank: the box is
+   * empty, so it can be archived, and undoing either entry would put
+   * money back in or take it out of the box.
+   */
+  async function seedEmptiedBox() {
+    const s = await seed();
+    const box = await createChoice(app.db, s.joao, "account", "Caixa");
+    const bank = await createChoice(app.db, s.joao, "account", "Banco");
+    const base = {
+      projectId: s.expense.projectId,
+      occurredOn: "2027-01-13",
+      accrualOn: "2027-01-13",
+      authorId: s.joao.memberId,
+      source: "app" as const,
+      amount: 10000n,
+    };
+    const [contribution] = await t.db
+      .insert(entries)
+      .values({
+        ...base,
+        type: "contribution",
+        fromMemberId: s.joao.memberId,
+        toAccountId: box.id,
+      })
+      .returning();
+    const [transfer] = await t.db
+      .insert(entries)
+      .values({
+        ...base,
+        type: "transfer",
+        fromAccountId: box.id,
+        toAccountId: bank.id,
+      })
+      .returning();
+    return { ...s, box, contribution: contribution!, transfer: transfer! };
+  }
+
+  // The box is the transfer's "from" side and the contribution's "to".
+  it.each(["transfer", "contribution"] as const)(
+    "refuses to undo the %s of an archived account, writing nothing",
+    async (which) => {
+      const s = await seedEmptiedBox();
+      await archiveChoice(app.db, s.joao, "account", s.box.id);
+      const entry = s[which];
+      expect(await refusal(undo(s.joao, entry.id))).toBe("account-archived");
+      expect(await reversalsOf(entry.id)).toHaveLength(0);
+    },
+  );
+
+  it("undoes it once the account is restored", async () => {
+    const s = await seedEmptiedBox();
+    await archiveChoice(app.db, s.joao, "account", s.box.id);
+    await t.db
+      .update(accounts)
+      .set({ archivedAt: null })
+      .where(eq(accounts.id, s.box.id));
+    expect(await refusal(undo(s.joao, s.transfer.id))).toBe("reversed");
+  });
+
+  // A category holds no money, and the reversal must carry the original's
+  // category to cancel it in the reports.
+  it("undoes an expense whose category is archived", async () => {
+    const s = await seed();
+    await archiveChoice(app.db, s.joao, "category", s.expense.categoryId!);
+    const row = await undo(s.joao, s.expense.id);
+    expect(row.categoryId).toBe(s.expense.categoryId);
+  });
+
+  // Archiving reads the balance under the account's row lock; the undo
+  // reads the account under a shared lock, so one waits for the other.
+  it("waits for an archive in flight, and then refuses", async () => {
+    const s = await seedEmptiedBox();
+    let pending: Promise<string> | undefined;
+    await t.db.transaction(async (tx) => {
+      await tx
+        .update(accounts)
+        .set({ archivedAt: new Date() })
+        .where(eq(accounts.id, s.box.id));
+      pending = refusal(undo(s.joao, s.transfer.id));
+      await waitForALockWait();
+    });
+    expect(await pending).toBe("account-archived");
+    expect(await reversalsOf(s.transfer.id)).toHaveLength(0);
   });
 });

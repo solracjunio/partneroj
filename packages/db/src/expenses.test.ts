@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { archiveChoice } from "./accounts-categories.js";
 import {
   currentProject,
   ExpenseRefused,
@@ -142,6 +143,14 @@ describe("currentProject", () => {
     });
   });
 
+  it("leaves out an archived category", async () => {
+    const s = await seed();
+    const admin = { memberId: s.joao, partnershipId: s.partnershipId };
+    await archiveChoice(app.db, admin, "category", s.materialId);
+    const current = await currentProject(app.db, s.partnershipId);
+    expect(current!.categories.map((c) => c.name)).toEqual(["Taxas"]);
+  });
+
   it("is null for a partnership with no project", async () => {
     const p = await createPartnership(app.db, {
       name: "Sem Projeto",
@@ -223,6 +232,21 @@ describe("recordExpense", () => {
         ),
       ),
     ).toBe("category-not-found");
+  });
+
+  // Its button is gone; only a screen left open before can still send it.
+  it("refuses an archived category, writing nothing", async () => {
+    const s = await seed();
+    const payer = { memberId: s.joao, partnershipId: s.partnershipId };
+    await archiveChoice(app.db, payer, "category", s.materialId);
+    expect(await refusal(recordExpense(app.db, boss, payer, expense(s)))).toBe(
+      "category-not-found",
+    );
+    const rows = await t.db
+      .select()
+      .from(entries)
+      .where(eq(entries.authorId, s.joao));
+    expect(rows).toEqual([]);
   });
 
   it("refuses a payer without a weight in the project", async () => {

@@ -10,6 +10,7 @@ import {
 } from "@partneroj/domain";
 import { and, eq } from "drizzle-orm";
 import type { PgBoss } from "pg-boss";
+import { accountsActive } from "./accounts-categories.js";
 import type { Database } from "./client.js";
 import type { Transaction } from "./jobs.js";
 import { recordEntryIn, type Entry } from "./record-entry.js";
@@ -18,7 +19,8 @@ import { isUniqueViolation } from "./pg-errors.js";
 import { entries, projects } from "./schema.js";
 
 /** Why a reversal was refused; the API turns each into a response. */
-export type ReversalRefusal = ReversalErrorCode | "not-author";
+export type ReversalRefusal =
+  ReversalErrorCode | "not-author" | "account-archived";
 
 export class ReversalRefused extends Error {
   constructor(readonly reason: ReversalRefusal) {
@@ -36,9 +38,11 @@ export const MAX_REASON_LENGTH = 200;
  * 0006); the others will contest through a vote.
  *
  * The domain refuses a missing reason, a second reversal, a reversal of a
- * reversal, the entry a ballot corrected and an account left below zero. Two requests at the same
- * moment can both pass that check; the unique index on reversal_of lets
- * only one insert, and the other is refused as already reversed.
+ * reversal, the entry a ballot corrected and an account left below zero;
+ * this file refuses one that would move money through an archived account
+ * (restore it first). Two requests at the same moment can both pass that
+ * check; the unique index on reversal_of lets only one insert, and the
+ * other is refused as already reversed.
  */
 export async function reverseEntry(
   db: Database,
@@ -81,6 +85,13 @@ async function reverseIn(
   }
   if (request.reason.trim().length > MAX_REASON_LENGTH) {
     throw new RangeError("reason too long");
+  }
+  // A category may be archived: the reversal carries the original's to
+  // cancel it in the reports, and a category holds no money.
+  if (
+    !(await accountsActive(tx, [original.fromAccountId, original.toAccountId]))
+  ) {
+    throw new ReversalRefused("account-archived");
   }
 
   // The project's whole ledger: the domain looks for an earlier reversal
