@@ -4,7 +4,7 @@
 // the API's to check (admins only); these functions check that the row
 // is the actor's partnership's, and audit every change.
 import { computeBalances } from "@partneroj/domain";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import type { Database } from "./client.js";
 import type { Transaction } from "./jobs.js";
 import { loadLedger } from "./ledger.js";
@@ -263,4 +263,30 @@ async function accountBalance(
     balance += held.get(accountId) ?? 0n;
   }
   return balance;
+}
+
+/**
+ * Whether none of these accounts is archived, read under a shared lock
+ * held until the caller commits: money must not move through an archived
+ * account. An archive in flight holds the row (archiveChoice), so this
+ * waits for it and sees it; and an archive that comes after waits for the
+ * caller's entry, and then counts it in the balance.
+ *
+ * Every row is locked and then checked here, not filtered by archived_at
+ * in the query: a row a WHERE leaves out is neither locked nor waited for.
+ */
+export async function accountsActive(
+  tx: Transaction,
+  ids: readonly (string | null)[],
+): Promise<boolean> {
+  const present = ids.filter((id): id is string => id !== null);
+  // A pocket expense names no account: no query (with none, it would
+  // find no rows, and the answer would be the same).
+  if (present.length === 0) return true;
+  const rows = await tx
+    .select({ archivedAt: accounts.archivedAt })
+    .from(accounts)
+    .where(inArray(accounts.id, present))
+    .for("share");
+  return rows.every((r) => r.archivedAt === null);
 }

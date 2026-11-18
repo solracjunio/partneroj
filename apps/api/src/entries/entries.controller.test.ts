@@ -4,7 +4,9 @@ import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import {
   addCategories,
+  archiveChoice,
   categories,
+  createChoice,
   createInvite,
   createPartnership,
   createProject,
@@ -89,6 +91,7 @@ async function seed(name = "Obra Teste", withProject = true) {
   const [joao, maria, leo] = p.members.map((m) => m.id);
   if (!withProject) {
     return {
+      partnershipId: p.id,
       joao: joao!,
       maria: maria!,
       leo: leo!,
@@ -118,6 +121,7 @@ async function seed(name = "Obra Teste", withProject = true) {
     .where(eq(categories.partnershipId, p.id))
     .orderBy(categories.name);
   return {
+    partnershipId: p.id,
     joao: joao!,
     maria: maria!,
     leo: leo!,
@@ -355,6 +359,46 @@ describe("POST /entries/:entryId/reverse", () => {
         .send({ reason: "errado" })
         .expect(404);
     }
+  });
+
+  it("answers 409 for an entry through an archived account", async () => {
+    const s = await seed();
+    const joao = { memberId: s.joao, partnershipId: s.partnershipId };
+    const box = await createChoice(conn.db, joao, "account", "Caixa");
+    const bank = await createChoice(conn.db, joao, "account", "Banco");
+    const base = {
+      projectId: s.projectId,
+      occurredOn: "2027-01-13",
+      accrualOn: "2027-01-13",
+      authorId: s.joao,
+      source: "app" as const,
+      amount: 10000n,
+    };
+    await t.db.insert(entries).values({
+      ...base,
+      type: "contribution",
+      fromMemberId: s.joao,
+      toAccountId: box.id,
+    });
+    const [transfer] = await t.db
+      .insert(entries)
+      .values({
+        ...base,
+        type: "transfer",
+        fromAccountId: box.id,
+        toAccountId: bank.id,
+      })
+      .returning();
+    await archiveChoice(conn.db, joao, "account", box.id);
+    const cookie = await signIn(s.joao);
+    const response = await http()
+      .post(`/entries/${transfer!.id}/reverse`)
+      .set("Cookie", cookie)
+      .send({ reason: "errado" })
+      .expect(409);
+    expect((response.body as { message: string }).message).toBe(
+      "account-archived",
+    );
   });
 
   it("answers 400 without a reason", async () => {

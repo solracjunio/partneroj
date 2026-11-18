@@ -12,7 +12,8 @@ import {
   type EarlierBallot,
   type Proposal,
 } from "@partneroj/domain";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { accountsActive } from "./accounts-categories.js";
 import type { Database } from "./client.js";
 import type { Transaction } from "./jobs.js";
 import { loadLedger, toDomainEntry } from "./ledger.js";
@@ -36,6 +37,7 @@ import {
 export type EntryBallotRefusal =
   | DomainErrorCode
   | "not-voter"
+  | "account-archived"
   | "member-without-weight"
   | "account-not-found"
   | "category-not-found";
@@ -99,8 +101,19 @@ async function openIn(
   if (request.reason.trim().length > MAX_REASON_LENGTH) {
     throw new RangeError("reason too long");
   }
-  const projectId = await entryProject(tx, actor, request.entryId);
+  const { projectId, fromAccountId, toAccountId } = await findEntry(
+    tx,
+    actor,
+    request.entryId,
+  );
   await assertVoter(tx, actor);
+  // Either proposal, once approved, reverses the entry, and the reversal
+  // would move money through its accounts: the same refusal as an undo.
+  // Block 4 checks again when it applies the outcome, since an account
+  // may be archived while the ballot is open.
+  if (!(await accountsActive(tx, [fromAccountId, toAccountId]))) {
+    throw new EntryBallotRefused("account-archived");
+  }
   if (request.proposal.kind === "correct") {
     await assertPartiesOf(tx, actor, projectId, request.proposal.entry);
   }
@@ -118,14 +131,22 @@ async function openIn(
   return record(tx, actor, request);
 }
 
-/** The entry's project, if the entry is the actor's partnership's. */
-async function entryProject(
+/** The entry's project and accounts, if it is the actor's partnership's. */
+async function findEntry(
   tx: Transaction,
   actor: Actor,
   entryId: string,
-): Promise<string> {
+): Promise<{
+  projectId: string;
+  fromAccountId: string | null;
+  toAccountId: string | null;
+}> {
   const [found] = await tx
-    .select({ projectId: entries.projectId })
+    .select({
+      projectId: entries.projectId,
+      fromAccountId: entries.fromAccountId,
+      toAccountId: entries.toAccountId,
+    })
     .from(entries)
     .innerJoin(projects, eq(projects.id, entries.projectId))
     .where(
@@ -136,7 +157,7 @@ async function entryProject(
     );
   // Another partnership's entry looks the same as one that doesn't exist.
   if (found === undefined) throw new EntryBallotRefused("entry-not-found");
-  return found.projectId;
+  return found;
 }
 
 /** Only who votes opens a ballot (plan section 2): a reader doesn't. */
@@ -192,6 +213,8 @@ async function assertPartiesOf(
         and(
           eq(accounts.partnershipId, actor.partnershipId),
           inArray(accounts.id, accountIds),
+          // Its button is gone: as if it weren't the partnership's.
+          isNull(accounts.archivedAt),
         ),
       );
     if (owned.length !== new Set(accountIds).size) {
@@ -207,6 +230,7 @@ async function assertPartiesOf(
         and(
           eq(categories.id, entry.categoryId),
           eq(categories.partnershipId, actor.partnershipId),
+          isNull(categories.archivedAt),
         ),
       );
     if (category === undefined) {
