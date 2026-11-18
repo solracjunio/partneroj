@@ -1,6 +1,18 @@
 // Postgres schema, client and migrations, shared by the API and the worker.
 export { createDatabase, type Database } from "./client.js";
 export {
+  archiveChoice,
+  ChoiceRefused,
+  createChoice,
+  listChoices,
+  MAX_CHOICE_NAME_LENGTH,
+  renameChoice,
+  restoreChoice,
+  type Choice,
+  type ChoiceKind,
+  type ChoiceRefusal,
+} from "./accounts-categories.js";
+export {
   projectBalances,
   type PartnerBalanceRow,
   type ProjectBalances,
