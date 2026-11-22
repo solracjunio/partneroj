@@ -32,6 +32,7 @@ const sendProblemText: Record<Failure, string> = {
   // The key was already used for another expense: save makes a new one,
   // so tapping again works.
   conflict: "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo.",
+  busy: "Muitas tentativas, e o gasto não foi salvo. Espere um minuto e toque em Salvar de novo.",
   error: "Algo deu errado e o gasto não foi salvo. Toque em Salvar de novo.",
 };
 

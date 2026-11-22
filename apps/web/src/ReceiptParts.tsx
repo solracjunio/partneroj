@@ -15,6 +15,7 @@ export const receiptProblemText: Record<ReceiptProblem, string> = {
 /** The upload failed; the entry it goes to is saved either way. */
 export const uploadProblemText: Record<Failure, string> = {
   offline: "Sem conexão, e a foto não foi enviada.",
+  busy: "Muitas tentativas, e a foto não foi enviada. Espere um minuto.",
   error: "Algo deu errado, e a foto não foi enviada.",
   unsupported: "O servidor não aceitou este arquivo.",
   "signed-out": "Você saiu do Partneroj, e a foto não foi enviada.",
@@ -24,7 +25,7 @@ export const uploadProblemText: Record<Failure, string> = {
 };
 
 /** Worth another tap: the connection or the server, not the file. */
-export const retryable = new Set<Failure>(["offline", "error"]);
+export const retryable = new Set<Failure>(["offline", "busy", "error"]);
 
 /** The chosen photo, as it will go up, or the PDF's name. */
 export function ReceiptPreview({ receipt }: { receipt: ReadyReceipt }) {

@@ -8,6 +8,7 @@ import { entryLink } from "./routes";
 const loadProblemText: Record<Failure, string> = {
   offline: "Sem conexão. Confira a internet e toque em Tentar de novo.",
   "signed-out": "Você saiu do Partneroj. Abra o app de novo para entrar.",
+  busy: "Muitas tentativas. Espere um minuto e toque em Tentar de novo.",
   error: "Algo deu errado. Toque em Tentar de novo.",
   refused: "Algo deu errado. Toque em Tentar de novo.",
   unsupported: "Algo deu errado. Toque em Tentar de novo.",

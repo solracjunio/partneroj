@@ -3,16 +3,31 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// jsdom has no WebAuthn; a phone with a fingerprint, for the passkey card.
+// jsdom has no WebAuthn; a phone with a fingerprint, for the passkey card
+// and "Entrar com a digital", whose passkey the API accepts.
 vi.mock(import("@simplewebauthn/browser"), async (original) => ({
   ...(await original()),
   platformAuthenticatorIsAvailable: () => Promise.resolve(true),
+  browserSupportsWebAuthn: () => true,
+  startAuthentication: () =>
+    Promise.resolve({
+      id: "Y3JlZGVudGlhbA",
+      rawId: "Y3JlZGVudGlhbA",
+      type: "public-key" as const,
+      response: {
+        clientDataJSON: "e30",
+        authenticatorData: "YQ",
+        signature: "YQ",
+        userHandle: "YQ",
+      },
+      clientExtensionResults: {},
+    }),
 }));
 
 import type { Me } from "./api";
 import { HomePage } from "./HomePage";
 import type { PartnerBalance, ProjectBalances } from "@partneroj/contracts";
-import { type Answer, fakeServer, stubDisplayMode } from "./testing";
+import { type Answer, fakeServer, later, stubDisplayMode } from "./testing";
 
 const me = (role: Me["role"]): Me => ({
   memberId: "01a1c25b-7bf8-7cea-b37d-5194960ba9a0",
@@ -107,6 +122,39 @@ it("explains how to get in when there is no session", async () => {
   expect(
     screen.getByText("Para entrar, peça um convite a um administrador."),
   ).toBeTruthy();
+});
+
+it("lets a member back in with the passkey, then loads the screen again", async () => {
+  const api = fakeServer({
+    // After signing in, the API knows this phone again.
+    "GET /api/me": { status: 200, body: me("partner") },
+    "GET /api/activities/unread": { status: 200, body: { count: 1 } },
+    "GET /api/projects/current/balances": { status: 404 },
+    "POST /api/auth/passkeys/login/options": {
+      status: 200,
+      body: { challenge: "YQ", rpId: "partneroj.test" },
+    },
+    "POST /api/auth/passkeys/login": { status: 204 },
+  });
+  // Signed out at first; then an answer the test holds, to see the wait.
+  const reloaded = later<{ status: number; body?: unknown }>();
+  api.next("GET /api/me", { status: 401 }, reloaded.promise);
+  const user = userEvent.setup();
+  render(<HomePage />);
+
+  await user.click(
+    await screen.findByRole("button", { name: "Entrar com a digital" }),
+  );
+
+  // Loading again, without the button to tap a second time.
+  expect(await screen.findByText("Carregando…")).toBeTruthy();
+  expect(screen.queryByRole("button")).toBeNull();
+  reloaded.settle({ status: 200, body: me("partner") });
+  expect(
+    await screen.findByRole("heading", { name: "Olá, Ana." }),
+  ).toBeTruthy();
+  expect(api.sent("GET /api/me")).toHaveLength(2);
+  expect(api.sent("GET /api/activities/unread")).toHaveLength(2);
 });
 
 it("says there is no connection", async () => {
