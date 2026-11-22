@@ -2,7 +2,7 @@
 // credentials it leaves. Checking a signature is the API's job, with
 // SimpleWebAuthn; this file keeps a challenge to one use, within minutes,
 // by the session that asked for it.
-import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import type { Database } from "./client.js";
 import { isUniqueViolation } from "./pg-errors.js";
 import {
@@ -12,12 +12,24 @@ import {
   webauthnChallenges,
 } from "./schema.js";
 import { hashToken, newToken } from "./tokens.js";
+import { type Device, openSession } from "./sessions.js";
 
 /** Long enough to find the fingerprint reader, short enough to be stale soon. */
 export const CHALLENGE_LIFETIME_MINUTES = 5;
 
-/** Why a passkey was not saved; the API turns each into a response. */
-export type PasskeyRefusal = "challenge-not-usable" | "credential-taken";
+/**
+ * How long a challenge stays after it expires, used or not, before
+ * deleteStaleChallenges removes it: a day to look into a failed sign-in.
+ */
+export const STALE_CHALLENGE_DAYS = 1;
+
+/**
+ * Why a passkey was not saved or not let in; the API turns each into a
+ * response. "passkey-not-usable" is a sign-in with a passkey that is
+ * unknown, revoked, or whose counter didn't go up.
+ */
+export type PasskeyRefusal =
+  "challenge-not-usable" | "credential-taken" | "passkey-not-usable";
 
 export class PasskeyRefused extends Error {
   constructor(readonly reason: PasskeyRefusal) {
@@ -138,4 +150,129 @@ export async function activeCredentials(
       and(eq(credentials.memberId, memberId), isNull(credentials.revokedAt)),
     )
     .orderBy(asc(credentials.createdAt), asc(credentials.id));
+}
+
+/** A saved passkey, as SimpleWebAuthn needs it to check a sign-in. */
+export interface StoredCredential {
+  id: string;
+  memberId: string;
+  credentialId: string;
+  publicKey: string;
+  counter: number;
+  transports: string[];
+}
+
+/**
+ * The passkey a phone signed in with, by the id it sent, or null when it
+ * is unknown or revoked. Discoverable passkeys: the id is how the server
+ * finds the member, as nobody typed a name.
+ */
+export async function findCredential(
+  db: Database,
+  credentialId: string,
+): Promise<StoredCredential | null> {
+  const [row] = await db
+    .select({
+      id: credentials.id,
+      memberId: credentials.memberId,
+      credentialId: credentials.credentialId,
+      publicKey: credentials.publicKey,
+      counter: credentials.counter,
+      transports: credentials.transports,
+    })
+    .from(credentials)
+    .where(
+      and(
+        eq(credentials.credentialId, credentialId),
+        isNull(credentials.revokedAt),
+      ),
+    );
+  return row ?? null;
+}
+
+/**
+ * Lets in the member of a passkey whose signature the API checked: uses
+ * the challenge it signed, keeps the new counter and opens a session, all
+ * in one transaction. Throws PasskeyRefused when the challenge can't be
+ * used (unknown, used, expired or to register) or the passkey can't
+ * (revoked meanwhile, or the counter didn't go up).
+ */
+export async function signInWithPasskey(
+  db: Database,
+  input: {
+    challenge: string;
+    credentialId: string;
+    /** The counter in the signed answer (WebAuthn, section 6.1.1). */
+    counter: number;
+    device?: Device;
+  },
+): Promise<{ memberId: string; sessionId: string; sessionToken: string }> {
+  return db.transaction(async (tx) => {
+    const [used] = await tx
+      .update(webauthnChallenges)
+      .set({ usedAt: sql`now()` })
+      .where(
+        and(
+          eq(webauthnChallenges.challengeHash, hashToken(input.challenge)),
+          eq(webauthnChallenges.purpose, "login"),
+          isNull(webauthnChallenges.usedAt),
+          // Strict, as in registerPasskey (an equivalent mutant there).
+          gt(webauthnChallenges.expiresAt, sql`now()`),
+        ),
+      )
+      .returning({ id: webauthnChallenges.id });
+    if (used === undefined) throw new PasskeyRefused("challenge-not-usable");
+
+    // SimpleWebAuthn compared the counter with the one the API read
+    // before; two sign-ins with the same answer's counter both pass that.
+    // This WHERE is evaluated again after the row lock, so the second
+    // finds the counter already up and is refused. Synced passkeys always
+    // send 0: then both are let in, as WebAuthn says.
+    const [passkey] = await tx
+      .update(credentials)
+      .set({ counter: input.counter, lastUsedAt: sql`now()` })
+      .where(
+        and(
+          eq(credentials.credentialId, input.credentialId),
+          isNull(credentials.revokedAt),
+          input.counter === 0
+            ? eq(credentials.counter, 0)
+            : lt(credentials.counter, input.counter),
+        ),
+      )
+      .returning({ id: credentials.id, memberId: credentials.memberId });
+    if (passkey === undefined) throw new PasskeyRefused("passkey-not-usable");
+
+    const device = input.device ?? {};
+    const session = await openSession(tx, passkey.memberId, device);
+    await tx.insert(auditLog).values({
+      actorId: passkey.memberId,
+      action: "credential.login",
+      entityId: passkey.id,
+      after: { sessionId: session.id, device: device.device ?? null },
+    });
+    return {
+      memberId: passkey.memberId,
+      sessionId: session.id,
+      sessionToken: session.token,
+    };
+  });
+}
+
+/**
+ * Removes the challenges that expired over STALE_CHALLENGE_DAYS ago, used
+ * or not: asking for one to sign in needs no session, so anyone can add
+ * rows. Run daily by the worker. Returns how many were removed.
+ */
+export async function deleteStaleChallenges(db: Database): Promise<number> {
+  const removed = await db
+    .delete(webauthnChallenges)
+    .where(
+      lt(
+        webauthnChallenges.expiresAt,
+        sql`now() - make_interval(days => ${STALE_CHALLENGE_DAYS})`,
+      ),
+    )
+    .returning({ id: webauthnChallenges.id });
+  return removed.length;
 }
