@@ -47,6 +47,7 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 18/11/2026 | Manutenção | 1,25 h* | Uma cópia só do formato de uuid (`isUuid`) e da espera de trava dos testes de corrida (`waitForALockWait`), com regra de lint contra novas cópias (PR #105); falha intermitente dos testes de banco investigada (11 Postgres subindo juntos nesta máquina, medido com `docker ps`) e limitada a 6 por pacote, no script `test`, depois que a primeira versão quebrou o `pnpm coverage` do CI (PR #106) | Sim |
 | 21/11/2026 | 3 | 1,25 h* | Desenho do bloco 3 (passkey descobrível, revogação de sessões e passkeys juntas, isolamento por teste genérico, auditoria visível a todos); tabelas `credentials` e `webauthn_challenges`, com a passkey revogada e nunca apagada e o desafio só por hash (PR #108); desafio de uso único, em 5 minutos, pela sessão que o pediu, consumido na mesma transação que grava a passkey, com teste de corrida (PR #109); mutação à mão em cada PR | Sim |
 | 22/11/2026 | 3 | 1,25 h* | Rotas de cadastro da passkey com SimpleWebAuthn, `hasPasskey` no `/me` e `PUBLIC_URL` obrigatório para a API subir; testes com um autenticador falso que assina com uma chave P-256 de verdade; rotas de entrada da documentação num arquivo próprio (PR #110); deploy conferido de fora; desenho do cartão "Proteja sua conta com a digital" | Sim |
+| 22/11/2026 | 3 | 3,5 h* | Cartão "Proteja sua conta com a digital" no topo da tela inicial (PR #112); entrar com a digital em 5 PRs: `openSession` extraído do convite (PR #113), desafio de login e contador conferidos de novo no `WHERE` depois da trava, com teste de corrida, e limpeza dos desafios velhos (PR #114), rotas de login com o `userHandle` conferido e o autenticador falso assinando de verdade (PR #115), limite de 30 pedidos por minuto por rota e endereço nas rotas públicas, `trust proxy` e limpeza diária no worker (PR #116), botão "Entrar com a digital" e a falha `busy` do 429 em todas as telas (PR #117); deploy conferido de fora (429 no 31º pedido) e teste em dois celulares, com digital e com o PIN do bloqueio; mutação à mão em cada PR | Sim |
 
 ## Total por bloco
 
@@ -57,7 +58,7 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 1B. Domínio completo | 14 h | 1,5 h |
 | 2A. Persistência dos sócios | 15 h | 3,5 h |
 | 2B. Persistência completa | 8 h | 7,0 h |
-| 3. Autenticação e auditoria | 22 h | 2,5 h |
+| 3. Autenticação e auditoria | 22 h | 6,0 h |
 | Infra de produção | 12 h | 4,25 h |
 | Versão para os sócios | 30 h | 18,25 h |
 | Manutenção (fora do plano) | — | 1,25 h |
