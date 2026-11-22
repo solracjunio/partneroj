@@ -58,6 +58,7 @@ export {
 // The queue's type, so the apps use pg-boss without a second copy of it.
 export type { PgBoss } from "pg-boss";
 export {
+  CHALLENGE_CLEANUP_CRON,
   installJobQueue,
   queueEntryNotification,
   queueOptions,

@@ -453,6 +453,18 @@ ssh partneroj 'cd ~/partneroj && docker compose -f infra/production/compose.yml 
 | `… try N failed: push service answered 503` | a tentativa N falhou e o pg-boss tenta de novo com espera crescente (até cerca de uma hora, nunca depois das 24 h). Vale para 429 e 5xx do serviço de push |
 | `… try N failed: ECONNRESET` | falha de rede, também repetida. Aparece só o código do erro: a mensagem pode conter o endereço da inscrição, que é secreto |
 
+## Entrada: limite por endereço e limpeza dos desafios
+
+As rotas de entrada não pedem sessão: ver o convite, aceitar o convite, pedir o desafio da digital e entrar com a digital. Qualquer um na internet pode chamá-las, e pedir o desafio grava uma linha em `webauthn_challenges`. Por isso:
+
+- **Limite:** 30 pedidos por minuto, por rota, de um mesmo endereço (`apps/api/src/auth/throttle.ts`). Acima disso, a API responde **429** `too_many_requests`. O limite é folgado porque as operadoras de celular põem muitos aparelhos atrás de um endereço só, e dois sócios podem dividir o mesmo. O endereço é o que o Caddy repassa no `X-Forwarded-For`. A contagem fica na memória da API e recomeça a cada deploy.
+- **Limpeza:** todo dia às 06h30 UTC (03h30 em Brasília), o worker apaga os desafios vencidos há mais de 1 dia, usados ou não. No log do worker:
+
+| Resultado | Quer dizer |
+|---|---|
+| `challenge-cleanup …: N removed` | N desafios velhos apagados. Um número muito maior que o de entradas do dia indica alguém chamando a rota sem parar |
+| `challenge-cleanup … try N failed: …` | a limpeza falhou e é tentada de novo em alguns minutos. Um dia perdido não faz mal: a do dia seguinte apaga também essas linhas |
+
 ## Trocar a senha da aplicação
 
 Mudar `APP_DB_PASSWORD` no `.env` do servidor e fazer o deploy de novo. O `migrate` aplica a senha nova ao `partneroj_api` antes de a API subir.

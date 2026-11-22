@@ -17,7 +17,16 @@ export const queues = {
    * retried for that phone alone, and the others are not told twice.
    */
   pushDelivery: "push-delivery",
+  /**
+   * Once a day, at CHALLENGE_CLEANUP_CRON: deleteStaleChallenges. Asking
+   * for a sign-in challenge needs no session, so its rows are cleared on
+   * a schedule, not by whoever made them.
+   */
+  challengeCleanup: "challenge-cleanup",
 } as const;
+
+/** 06:30 UTC, 03:30 in Brasília: when nobody is recording expenses. */
+export const CHALLENGE_CLEANUP_CRON = "30 6 * * *";
 
 type QueueName = (typeof queues)[keyof typeof queues];
 
@@ -51,6 +60,14 @@ export const queueOptions: Record<
     retryDelay: 2,
     retryBackoff: true,
     retryDelayMax: 900,
+    expireInSeconds: 60,
+  },
+  // A missed day is no harm: the next one removes those rows too.
+  [queues.challengeCleanup]: {
+    retryLimit: 2,
+    retryDelay: 60,
+    retryBackoff: true,
+    retryDelayMax: 300,
     expireInSeconds: 60,
   },
 };

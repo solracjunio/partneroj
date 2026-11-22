@@ -95,6 +95,13 @@ export const unauthorized = {
   "401": { description: "No session, or it expired." },
 };
 export const adminsOnly = { "403": { description: "Only admins." } };
+/** The routes of getting in, which need no session (auth/throttle.ts). */
+export const tooManyRequests = {
+  "429": {
+    description:
+      "`too_many_requests`: over 30 a minute on this route from one address.",
+  },
+};
 export const badBody = {
   "400": {
     description: "The body is invalid: `fields` lists which, never the values.",
