@@ -16,7 +16,9 @@ import type {
 } from "@partneroj/contracts";
 import { idempotencyKeyHeader } from "@partneroj/contracts";
 import type {
+  AuthenticationResponseJSON,
   PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/browser";
 
@@ -47,7 +49,8 @@ export interface Me {
  * weight) and 422 (a project or category that is gone); "unsupported"
  * is its 413 and 415 (a file too big, or one it can't read, like HEIC);
  * "conflict" is its 409 (an entry already undone, or itself an undo);
- * "offline" is no answer at all.
+ * "busy" is its 429 (over the limit of the routes of getting in, which
+ * passes in a minute); "offline" is no answer at all.
  */
 export type Failure =
   | "unusable"
@@ -55,6 +58,7 @@ export type Failure =
   | "refused"
   | "unsupported"
   | "conflict"
+  | "busy"
   | "offline"
   | "error";
 
@@ -82,6 +86,7 @@ async function call<T>(
     return { ok: false, failure: "unsupported" };
   }
   if (response.status === 409) return { ok: false, failure: "conflict" };
+  if (response.status === 429) return { ok: false, failure: "busy" };
   return { ok: false, failure: "error" };
 }
 
@@ -201,6 +206,29 @@ export const api = {
   registerPasskey: (answer: RegistrationResponseJSON) =>
     call(
       "/auth/passkeys/register",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(answer),
+      },
+      () => Promise.resolve(undefined),
+    ),
+
+  /** What the phone needs to sign in with its passkey; no session. */
+  passkeyLoginOptions: () =>
+    call(
+      "/auth/passkeys/login/options",
+      { method: "POST" },
+      json<PublicKeyCredentialRequestOptionsJSON>,
+    ),
+
+  /**
+   * The phone's signed answer: the API sets the session cookie, as when
+   * accepting an invite. 401 when it doesn't know the passkey.
+   */
+  passkeyLogin: (answer: AuthenticationResponseJSON) =>
+    call(
+      "/auth/passkeys/login",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

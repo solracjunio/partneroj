@@ -105,6 +105,7 @@ export const loadProblemText: Record<Failure, string> = {
   conflict: tryAgain,
   refused: tryAgain,
   unsupported: tryAgain,
+  busy: "Muitas tentativas. Espere um minuto e toque em Tentar de novo.",
   error: tryAgain,
 };
 
@@ -117,5 +118,6 @@ export const reverseProblemText: Record<Failure, string> = {
   offline:
     "Sem conexão. Nada foi desfeito. Confira a internet e tente de novo.",
   unsupported: "Algo deu errado. Nada foi desfeito. Tente de novo.",
+  busy: "Muitas tentativas. Nada foi desfeito. Espere um minuto e tente de novo.",
   error: "Algo deu errado. Nada foi desfeito. Tente de novo.",
 };

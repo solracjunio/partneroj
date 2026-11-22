@@ -13,6 +13,7 @@ import { feedButtonLabel } from "./feed";
 import { InstallCard } from "./InstallCard";
 import { NotificationsCard } from "./NotificationsCard";
 import { PasskeyCard } from "./PasskeyCard";
+import { PasskeyLogin } from "./PasskeyLogin";
 import { formatCents } from "./money";
 import { navigate } from "./routes";
 
@@ -24,6 +25,8 @@ export function HomePage() {
   const [me, setMe] = useState<Result<Me> | null>(null);
   const [unread, setUnread] = useState(0);
   const [balances, setBalances] = useState<ProjectBalances | null>(null);
+  // Counts the loads: signing in with the passkey loads the screen again.
+  const [loads, setLoads] = useState(0);
 
   useEffect(() => {
     let current = true;
@@ -43,7 +46,7 @@ export function HomePage() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [loads]);
 
   if (me === null) return <p className="muted">Carregando…</p>;
 
@@ -84,6 +87,12 @@ export function HomePage() {
     return (
       <section>
         <h1>Partneroj</h1>
+        <PasskeyLogin
+          onSignedIn={() => {
+            setMe(null);
+            setLoads((n) => n + 1);
+          }}
+        />
         <p>Para entrar, peça um convite a um administrador.</p>
         <p className="muted">
           Se você já entrou antes, abra o Partneroj pelo mesmo navegador daquela

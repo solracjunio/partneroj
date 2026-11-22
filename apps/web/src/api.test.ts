@@ -48,6 +48,7 @@ describe("api", () => {
     [413, "unsupported"],
     [415, "unsupported"],
     [409, "conflict"],
+    [429, "busy"],
     [500, "error"],
   ])("turns a %i into %s", async (status, failure) => {
     answer(status);
