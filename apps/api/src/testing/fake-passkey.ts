@@ -1,10 +1,16 @@
 // Test helper: a phone's passkey, without a phone. It answers
-// navigator.credentials.create() as an authenticator does (WebAuthn,
-// section 6.5), with a real P-256 key, so the API's tests check the real
-// signature, RP ID and origin, not a stand-in. Left out of the build.
-import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
+// navigator.credentials.create() and .get() as an authenticator does
+// (WebAuthn, sections 6.3 and 6.5), with a real P-256 key, so the API's
+// tests check the real signature, RP ID and origin, not a stand-in. Left
+// out of the build.
+import {
+  createHash,
+  generateKeyPairSync,
+  randomBytes,
+  sign,
+} from "node:crypto";
 
-import type { PasskeyRegistration } from "@partneroj/contracts";
+import type { PasskeyLogin, PasskeyRegistration } from "@partneroj/contracts";
 import { isoBase64URL, isoCBOR } from "@simplewebauthn/server/helpers";
 
 /** Authenticator data flags (WebAuthn, section 6.1). */
@@ -37,6 +43,12 @@ export interface Answer {
   transports?: string[] | null;
 }
 
+/** How a sign-in answer is made; as Answer, plus who it says it is. */
+export interface LoginAnswer extends Omit<Answer, "transports"> {
+  /** Another user handle than the one kept when registering. */
+  userHandle?: string;
+}
+
 /** What isoCBOR encodes: numbers, strings, bytes, arrays and maps. */
 type Cbor = Parameters<typeof isoCBOR.encode>[0];
 
@@ -47,6 +59,8 @@ export class FakePasskey {
   /** Like a phone's, random; pass one to make a second phone with the same id. */
   readonly credentialId: string;
   private readonly keys = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  /** The member's handle from the options, kept as a phone keeps it. */
+  private userHandle: string | undefined;
 
   constructor(credentialId = isoBase64URL.fromBuffer(randomBytes(16))) {
     this.credentialId = credentialId;
@@ -54,9 +68,10 @@ export class FakePasskey {
 
   /** The answer to navigator.credentials.create(options), as JSON. */
   register(
-    options: { challenge: string },
+    options: { challenge: string; user?: { id: string } },
     answer: Answer,
   ): PasskeyRegistration {
+    this.userHandle = options.user?.id;
     const clientDataJSON = Buffer.from(
       JSON.stringify({
         type: "webauthn.create",
@@ -97,6 +112,56 @@ export class FakePasskey {
         ...(answer.transports === null
           ? {}
           : { transports: answer.transports ?? ["internal", "hybrid"] }),
+      },
+      clientExtensionResults: {},
+      authenticatorAttachment: "platform",
+    };
+  }
+
+  /**
+   * The answer to navigator.credentials.get(options), as JSON: the
+   * authenticator data and the client data, signed with the private key.
+   */
+  authenticate(
+    options: { challenge: string },
+    answer: LoginAnswer,
+  ): PasskeyLogin {
+    const clientDataJSON = Buffer.from(
+      JSON.stringify({
+        type: "webauthn.get",
+        challenge: answer.challenge ?? options.challenge,
+        origin: answer.origin,
+        crossOrigin: false,
+      }),
+    );
+    const flags =
+      USER_PRESENT | (answer.userVerified === false ? 0 : USER_VERIFIED);
+    const authData = Buffer.concat([
+      sha256(answer.rpID),
+      Buffer.from([flags]),
+      this.counter(answer.counter ?? 0),
+    ]);
+    // ES256 (WebAuthn, section 6.3.3): ECDSA with SHA-256 over the
+    // authenticator data and the client data's hash, DER-encoded, which is
+    // what node's sign gives for an EC key.
+    const signature = sign(
+      "sha256",
+      Buffer.concat([authData, sha256(clientDataJSON)]),
+      this.keys.privateKey,
+    );
+    const userHandle = answer.userHandle ?? this.userHandle;
+    if (userHandle === undefined) {
+      throw new Error("register this passkey with the options' user first");
+    }
+    return {
+      id: this.credentialId,
+      rawId: this.credentialId,
+      type: "public-key",
+      response: {
+        clientDataJSON: isoBase64URL.fromBuffer(clientDataJSON),
+        authenticatorData: isoBase64URL.fromBuffer(authData),
+        signature: isoBase64URL.fromBuffer(signature),
+        userHandle,
       },
       clientExtensionResults: {},
       authenticatorAttachment: "platform",
