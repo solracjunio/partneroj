@@ -1,6 +1,7 @@
 // Passkeys (plan section 6, "Passkey"), shared by the API and the web app:
-// what the browser sends after navigator.credentials.create(). The API
-// checks the signature with SimpleWebAuthn; this only checks the shape.
+// what the browser sends after navigator.credentials.create() and .get().
+// The API checks the signature with SimpleWebAuthn; this only checks the
+// shape.
 import { z } from "zod";
 
 /** URL-safe base64 without padding, as WebAuthn's JSON sends bytes. */
@@ -27,3 +28,25 @@ export const passkeyRegistration = z.object({
 });
 
 export type PasskeyRegistration = z.infer<typeof passkeyRegistration>;
+
+/**
+ * The browser's answer when signing in with a passkey (WebAuthn's
+ * AuthenticationResponseJSON). userHandle is required: a discoverable
+ * passkey always sends it, and the API compares it with the passkey's
+ * member. Not strict, as above.
+ */
+export const passkeyLogin = z.object({
+  id: base64url,
+  rawId: base64url,
+  type: z.literal("public-key"),
+  response: z.object({
+    clientDataJSON: base64url,
+    authenticatorData: base64url,
+    signature: base64url,
+    userHandle: base64url,
+  }),
+  clientExtensionResults: z.object({}),
+  authenticatorAttachment: z.enum(["platform", "cross-platform"]).optional(),
+});
+
+export type PasskeyLogin = z.infer<typeof passkeyLogin>;

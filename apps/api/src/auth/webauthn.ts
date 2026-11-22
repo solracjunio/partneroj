@@ -2,6 +2,13 @@
 // one site, its RP ID, and the phone signs which page asked, its origin.
 // Both come from PUBLIC_URL, the address the app is opened at.
 
+/**
+ * A member's uuid as its 16 bytes: the passkey's user handle, opaque and
+ * without the name. The phone keeps it, and sends it back when signing in.
+ */
+export const uuidBytes = (id: string) =>
+  Buffer.from(id.replaceAll("-", ""), "hex");
+
 /** Nest's token for the WebAuthnConfig. */
 export const WEBAUTHN = Symbol("WEBAUTHN");
 

@@ -30,14 +30,11 @@ import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import { DATABASE } from "../database/database.module.js";
 import { ZodBody } from "../validation/zod-body.pipe.js";
 import { CurrentMember, SessionGuard } from "./session.guard.js";
-import { WEBAUTHN, type WebAuthnConfig } from "./webauthn.js";
+import { uuidBytes, WEBAUTHN, type WebAuthnConfig } from "./webauthn.js";
 
 type RegistrationOptions = Awaited<
   ReturnType<typeof generateRegistrationOptions>
 >;
-
-/** A uuid as its 16 bytes: an opaque user handle, without the name. */
-const uuidBytes = (id: string) => Buffer.from(id.replaceAll("-", ""), "hex");
 
 /**
  * Registering a passkey (plan section 6, "Passkey"), for a member who is

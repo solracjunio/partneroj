@@ -1,7 +1,7 @@
 // The routes of getting in (plan section 6) for the API documentation:
 // invites, the session and passkeys. Apart from openapi.ts because block 3
 // keeps adding to them; the rest of the document doesn't change with them.
-import { passkeyRegistration } from "@partneroj/contracts";
+import { passkeyLogin, passkeyRegistration } from "@partneroj/contracts";
 
 import {
   adminsOnly,
@@ -105,6 +105,42 @@ export function accessRoutes(): OpenApiDocument["paths"] {
           ...unauthorized,
           "409": {
             description: "`credential_taken`: this passkey is already saved.",
+          },
+        },
+      },
+    },
+    "/auth/passkeys/login/options": {
+      post: {
+        summary: "Start signing in with a passkey",
+        description: `The options for \`navigator.credentials.get()\`, with a new challenge valid for 5 minutes. No session needed, and no name: the phone offers the passkeys it has for this site. ${noStore}`,
+        tags: ["Access"],
+        ...open,
+        responses: {
+          "200": {
+            description: "WebAuthn's `PublicKeyCredentialRequestOptionsJSON`.",
+          },
+        },
+      },
+    },
+    "/auth/passkeys/login": {
+      post: {
+        summary: "Sign in with a passkey",
+        description:
+          "The phone's answer to the options. The signature, the site, the fingerprint and the counter are checked; the challenge works once. Signs in on this device, as accepting an invite does.",
+        tags: ["Access"],
+        ...open,
+        requestBody: json(passkeyLogin),
+        responses: {
+          "204": {
+            description: "Signed in; `Set-Cookie` carries the session.",
+          },
+          "400": {
+            description:
+              "`invalid_body`; `passkey_not_verified`: a wrong signature, site, page or user handle, no fingerprint, or a counter that didn't go up; `challenge_not_usable`: unknown, used, expired or to register.",
+          },
+          "401": {
+            description:
+              "`passkey_unknown`: not a saved passkey, or revoked; the member needs an invite.",
           },
         },
       },
