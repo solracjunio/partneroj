@@ -16,6 +16,7 @@ import {
 } from "@nestjs/common";
 import {
   acceptInvite,
+  activeCredentials,
   type Database,
   type InvitePreview,
   inviteMember,
@@ -36,6 +37,8 @@ export interface Me {
   partnershipId: string;
   name: string;
   role: SessionMember["role"];
+  /** Whether "Proteja sua conta com a digital" is done (plan section 6). */
+  hasPasskey: boolean;
 }
 
 /**
@@ -80,12 +83,14 @@ export class SessionsController {
 
   @Get("me")
   @Header("Cache-Control", "no-store")
-  me(@CurrentMember() member: SessionMember): Me {
+  async me(@CurrentMember() member: SessionMember): Promise<Me> {
+    const passkeys = await activeCredentials(this.db, member.memberId);
     return {
       memberId: member.memberId,
       partnershipId: member.partnershipId,
       name: member.name,
       role: member.role,
+      hasPasskey: passkeys.length > 0,
     };
   }
 
