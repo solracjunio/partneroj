@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@partneroj/contracts": "workspace:*",
+    "@simplewebauthn/browser": "14.0.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
