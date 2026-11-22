@@ -23,7 +23,6 @@ export {
   INVITE_LIFETIME_HOURS,
   inviteMember,
   previewInvite,
-  type Device,
   type InvitePreview,
 } from "./invites.js";
 export {
@@ -107,6 +106,7 @@ export {
 } from "./receipts.js";
 export * from "./schema.js";
 export {
+  type Device,
   findSession,
   revokeSessions,
   SESSION_IDLE_DAYS,
