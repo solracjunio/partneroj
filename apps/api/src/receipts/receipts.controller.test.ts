@@ -6,6 +6,7 @@ import { join } from "node:path";
 
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   addCategories,
   categories,
@@ -50,6 +51,9 @@ beforeAll(async () => {
   boss = await startJobQueue(conn.connectionString, { sendOnly: true });
   root = await mkdtemp(join(tmpdir(), "receipts-api-"));
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+    // Signs in many times a second; the limit has its own test (throttle.test.ts).
+    .overrideGuard(ThrottlerGuard)
+    .useValue({ canActivate: () => true })
     .overrideProvider(DATABASE)
     .useValue(conn.db)
     .overrideProvider(JOB_QUEUE)

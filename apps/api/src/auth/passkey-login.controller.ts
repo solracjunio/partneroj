@@ -11,7 +11,9 @@ import {
   Post,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import { passkeyLogin, type PasskeyLogin } from "@partneroj/contracts";
 import {
   createChallenge,
@@ -40,9 +42,11 @@ type AuthenticationOptions = Awaited<
  * Signing in with a passkey (plan section 6, "Passkey"), without a
  * session: it is what makes one. SimpleWebAuthn checks the signature, the
  * site, the fingerprint and the counter; the database keeps the challenge
- * to one use and opens the session (signInWithPasskey).
+ * to one use and opens the session (signInWithPasskey). No session, so
+ * each route has a limit per address (throttle.ts).
  */
 @Controller("auth/passkeys/login")
+@UseGuards(ThrottlerGuard)
 export class PasskeyLoginController {
   constructor(
     @Inject(DATABASE) private readonly db: Database,

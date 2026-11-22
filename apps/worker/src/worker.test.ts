@@ -1,4 +1,14 @@
-import { queues, type PgBoss, startJobQueue } from "@partneroj/db";
+import {
+  CHALLENGE_CLEANUP_CRON,
+  createChallenge,
+  hashToken,
+  queues,
+  type PgBoss,
+  startJobQueue,
+  STALE_CHALLENGE_DAYS,
+  webauthnChallenges,
+} from "@partneroj/db";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { PushSender } from "./deliver.js";
@@ -121,4 +131,45 @@ describe("the worker", () => {
       expect(line).not.toContain("fcm.googleapis.com");
     }
   }, 30_000);
+
+  it("schedules the cleanup of old challenges once a day, in UTC", async () => {
+    const schedules = await worker.getSchedules(queues.challengeCleanup);
+    expect(schedules).toHaveLength(1);
+    expect(schedules[0]).toMatchObject({
+      cron: CHALLENGE_CLEANUP_CRON,
+      timezone: "UTC",
+    });
+  });
+
+  it("removes the old challenges when the daily job runs", async () => {
+    const challenge = await createChallenge(w.app.db, { purpose: "login" });
+    const row = eq(webauthnChallenges.challengeHash, hashToken(challenge));
+    await w.t.db
+      .update(webauthnChallenges)
+      .set({
+        createdAt: sql`now() - make_interval(days => ${STALE_CHALLENGE_DAYS}, hours => 2)`,
+        expiresAt: sql`now() - make_interval(days => ${STALE_CHALLENGE_DAYS}, hours => 1)`,
+      })
+      .where(row);
+
+    // What the schedule sends each day, sent now.
+    await w.boss.send(queues.challengeCleanup, {});
+
+    await vi.waitFor(
+      async () => {
+        expect(
+          await w.t.db.select().from(webauthnChallenges).where(row),
+        ).toEqual([]);
+      },
+      { timeout: 10_000, interval: 100 },
+    );
+    await vi.waitFor(() => {
+      const lines = log.mock.calls.map(([line]) => line);
+      expect(lines).toContainEqual(
+        expect.stringMatching(
+          new RegExp(`^${queues.challengeCleanup} \\S+: 1 removed$`),
+        ),
+      );
+    });
+  });
 });

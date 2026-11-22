@@ -2,6 +2,7 @@ import "reflect-metadata";
 
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   createInvite,
   credentials,
@@ -41,6 +42,9 @@ beforeAll(async () => {
   t = await startTestDatabase();
   conn = await connectAsApp(t);
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+    // Signs in many times a second; the limit has its own test (throttle.test.ts).
+    .overrideGuard(ThrottlerGuard)
+    .useValue({ canActivate: () => true })
     .overrideProvider(DATABASE)
     .useValue(conn.db)
     // These routes queue no jobs.

@@ -10,6 +10,7 @@ import {
   noStore,
   open,
   type OpenApiDocument,
+  tooManyRequests,
   unauthorized,
 } from "./openapi-parts.js";
 
@@ -35,6 +36,7 @@ export function accessRoutes(): OpenApiDocument["paths"] {
             description:
               "`invite_not_usable`: unknown, used, revoked or expired.",
           },
+          ...tooManyRequests,
         },
       },
     },
@@ -58,6 +60,7 @@ export function accessRoutes(): OpenApiDocument["paths"] {
             description: "Signed in; `Set-Cookie` carries the session.",
           },
           "404": { description: "`invite_not_usable`." },
+          ...tooManyRequests,
         },
       },
     },
@@ -119,6 +122,7 @@ export function accessRoutes(): OpenApiDocument["paths"] {
           "200": {
             description: "WebAuthn's `PublicKeyCredentialRequestOptionsJSON`.",
           },
+          ...tooManyRequests,
         },
       },
     },
@@ -142,6 +146,7 @@ export function accessRoutes(): OpenApiDocument["paths"] {
             description:
               "`passkey_unknown`: not a saved passkey, or revoked; the member needs an invite.",
           },
+          ...tooManyRequests,
         },
       },
     },

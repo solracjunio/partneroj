@@ -1,7 +1,10 @@
 // The worker's jobs (plan section 4): each new entry becomes one push per
-// phone, and each push is sent on its own.
+// phone, and each push is sent on its own. Also, once a day, the old
+// sign-in challenges go (plan section 6).
 import {
+  CHALLENGE_CLEANUP_CRON,
   type Database,
+  deleteStaleChallenges,
   type EntryNotification,
   type PgBoss,
   type PushDelivery,
@@ -102,5 +105,20 @@ export async function startWorker(deps: WorkerDeps): Promise<void> {
       );
       log(`${queues.pushDelivery} ${job.id}: ${describe(delivery)}`);
     }
+  });
+
+  await boss.work(queues.challengeCleanup, options, async (jobs) => {
+    for (const job of jobs) {
+      const removed = await logged(log, queues.challengeCleanup, job, () =>
+        deleteStaleChallenges(db),
+      );
+      log(`${queues.challengeCleanup} ${job.id}: ${removed} removed`);
+    }
+  });
+  // Saved in the database: scheduling again on each start only updates it.
+  // A day missed while the worker was down is not run late ("skip", the
+  // default); the next day's run removes those rows as well.
+  await boss.schedule(queues.challengeCleanup, CHALLENGE_CLEANUP_CRON, null, {
+    tz: "UTC",
   });
 }

@@ -14,6 +14,7 @@ import {
   Res,
   UseGuards,
 } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import {
   acceptInvite,
   activeCredentials,
@@ -44,9 +45,11 @@ export interface Me {
 /**
  * The invite (plan section 6). An invite that can't be used answers 404
  * whatever the reason (unknown, used, revoked or expired): the page shows
- * the same "ask for a new invite" for all of them.
+ * the same "ask for a new invite" for all of them. No session, so each
+ * route has a limit per address (throttle.ts).
  */
 @Controller()
+@UseGuards(ThrottlerGuard)
 export class InvitesController {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
