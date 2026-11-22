@@ -104,6 +104,16 @@ button.secondary {
   margin: 0 0 16px;
 }
 
+/* Two buttons in a card: the grid's gap between them, the card's bottom
+   space once, below the last. */
+.notice .actions {
+  margin: 0 0 16px;
+}
+
+.notice .actions button.primary {
+  margin: 0;
+}
+
 /* "Avisos ligados": a line and a quiet button, not a card asking for a tap. */
 .push-on {
   margin: 0 0 24px;

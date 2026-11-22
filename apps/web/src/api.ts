@@ -15,6 +15,10 @@ import type {
   VapidKey,
 } from "@partneroj/contracts";
 import { idempotencyKeyHeader } from "@partneroj/contracts";
+import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  RegistrationResponseJSON,
+} from "@simplewebauthn/browser";
 
 export interface InvitePreview {
   memberName: string;
@@ -32,6 +36,8 @@ export interface Me {
   partnershipId: string;
   name: string;
   role: "admin" | "partner" | "reader";
+  /** Whether the member has a passkey: without one, the card asks. */
+  hasPasskey: boolean;
 }
 
 /**
@@ -181,6 +187,26 @@ export const api = {
   removeSubscription: () =>
     call("/notifications/subscription", { method: "DELETE" }, () =>
       Promise.resolve(undefined),
+    ),
+
+  /** What the phone needs to make a passkey, with a new challenge. */
+  passkeyOptions: () =>
+    call(
+      "/auth/passkeys/register/options",
+      { method: "POST" },
+      json<PublicKeyCredentialCreationOptionsJSON>,
+    ),
+
+  /** The phone's answer; 409 when the API already has that passkey. */
+  registerPasskey: (answer: RegistrationResponseJSON) =>
+    call(
+      "/auth/passkeys/register",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(answer),
+      },
+      () => Promise.resolve(undefined),
     ),
 
   /** The receipt of an entry: the body is the file itself. */

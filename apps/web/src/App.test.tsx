@@ -17,6 +17,7 @@ beforeEach(() => {
         partnershipId: "01a1c25b-7bf8-7cea-b37d-5194960ba9c1",
         name: "Ana",
         role: "partner",
+        hasPasskey: true,
       },
     },
     "GET /api/activities/unread": { status: 200, body: { count: 0 } },

@@ -20,6 +20,7 @@ const me: Me = {
   partnershipId: "01a1c25b-7bf8-7cea-b37d-5194960ba9d4",
   name: "Ana",
   role: "partner",
+  hasPasskey: true,
 };
 
 const partner = (

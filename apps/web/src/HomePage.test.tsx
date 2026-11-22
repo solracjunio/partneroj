@@ -3,6 +3,12 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// jsdom has no WebAuthn; a phone with a fingerprint, for the passkey card.
+vi.mock(import("@simplewebauthn/browser"), async (original) => ({
+  ...(await original()),
+  platformAuthenticatorIsAvailable: () => Promise.resolve(true),
+}));
+
 import type { Me } from "./api";
 import { HomePage } from "./HomePage";
 import type { PartnerBalance, ProjectBalances } from "@partneroj/contracts";
@@ -13,6 +19,7 @@ const me = (role: Me["role"]): Me => ({
   partnershipId: "01a1c25b-7bf8-7cea-b37d-5194960ba9a1",
   name: "Ana",
   role,
+  hasPasskey: true,
 });
 
 function homeServer(
@@ -45,6 +52,24 @@ it("greets a partner, who can record an expense", async () => {
   await screen.findByRole("heading", { name: "Olá, Ana." });
   await user.click(screen.getByRole("button", { name: "Fiz um gasto" }));
   expect(window.location.pathname).toBe("/gasto");
+});
+
+it("asks a member without a passkey for one, above 'Fiz um gasto'", async () => {
+  homeServer({ status: 200, body: { ...me("partner"), hasPasskey: false } });
+  render(<HomePage />);
+  const card = await screen.findByText("Proteja sua conta com a digital.");
+  const record = screen.getByRole("button", { name: "Fiz um gasto" });
+  expect(
+    card.compareDocumentPosition(record) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
+it("doesn't ask a member who has a passkey", async () => {
+  homeServer({ status: 200, body: me("partner") });
+  render(<HomePage />);
+  await screen.findByRole("heading", { name: "Olá, Ana." });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(screen.queryByText("Proteja sua conta com a digital.")).toBeNull();
 });
 
 it("gives a reader the feed but not 'Fiz um gasto'", async () => {

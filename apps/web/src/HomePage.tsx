@@ -12,6 +12,7 @@ import {
 import { feedButtonLabel } from "./feed";
 import { InstallCard } from "./InstallCard";
 import { NotificationsCard } from "./NotificationsCard";
+import { PasskeyCard } from "./PasskeyCard";
 import { formatCents } from "./money";
 import { navigate } from "./routes";
 
@@ -50,6 +51,7 @@ export function HomePage() {
     return (
       <section>
         <h1>Olá, {me.value.name}.</h1>
+        <PasskeyCard hasPasskey={me.value.hasPasskey} />
         <div className="actions">
           {/* Plan section 2: a reader only follows. */}
           {me.value.role !== "reader" && (

@@ -23,6 +23,7 @@ const me: Me = {
   partnershipId: ids.partnership,
   name: "Ana",
   role: "partner",
+  hasPasskey: true,
 };
 
 /** An expense the signed-in member paid and recorded, still confirmed. */

@@ -21,6 +21,7 @@ const me: Me = {
   partnershipId: "01a1c25b-7bf8-7cea-b37d-5194960ba9b4",
   name: "Ana",
   role: "partner",
+  hasPasskey: true,
 };
 
 /** Activity ids end in their position, so pages are easy to tell apart. */
