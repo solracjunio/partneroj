@@ -112,6 +112,16 @@ export {
   SESSION_IDLE_DAYS,
   type SessionMember,
 } from "./sessions.js";
+export {
+  activeCredentials,
+  CHALLENGE_LIFETIME_MINUTES,
+  createChallenge,
+  PasskeyRefused,
+  registerPasskey,
+  type ChallengeFor,
+  type NewCredential,
+  type PasskeyRefusal,
+} from "./passkeys.js";
 export { hashToken, newToken } from "./tokens.js";
 export {
   deliveryTarget,
