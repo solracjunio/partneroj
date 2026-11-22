@@ -116,11 +116,16 @@ export {
   activeCredentials,
   CHALLENGE_LIFETIME_MINUTES,
   createChallenge,
+  deleteStaleChallenges,
+  findCredential,
   PasskeyRefused,
   registerPasskey,
+  signInWithPasskey,
+  STALE_CHALLENGE_DAYS,
   type ChallengeFor,
   type NewCredential,
   type PasskeyRefusal,
+  type StoredCredential,
 } from "./passkeys.js";
 export { hashToken, newToken } from "./tokens.js";
 export {
