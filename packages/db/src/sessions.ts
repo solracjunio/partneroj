@@ -3,8 +3,9 @@
 // is used keeps going, so in practice nobody has to enter again.
 import { and, eq, gt, isNull, type SQL, sql } from "drizzle-orm";
 import type { Database } from "./client.js";
+import type { Transaction } from "./jobs.js";
 import { auditLog, members, sessions } from "./schema.js";
-import { hashToken } from "./tokens.js";
+import { hashToken, newToken } from "./tokens.js";
 
 export const SESSION_IDLE_DAYS = 180;
 
@@ -21,6 +22,35 @@ export function liveSession(): SQL {
       sql`now() - make_interval(days => ${SESSION_IDLE_DAYS})`,
     ),
   )!;
+}
+
+/** The browser that signs in, from its User-Agent. */
+export interface Device {
+  device?: string | undefined;
+  browser?: string | undefined;
+}
+
+/**
+ * A new session for a member, inside the caller's transaction: the way in
+ * (an invite, for now) is used and the session opened together. The token
+ * goes in the cookie; only its hash is stored.
+ */
+export async function openSession(
+  tx: Transaction,
+  memberId: string,
+  device: Device,
+): Promise<{ id: string; token: string }> {
+  const { token, tokenHash } = newToken();
+  const [row] = await tx
+    .insert(sessions)
+    .values({
+      memberId,
+      device: device.device,
+      browser: device.browser,
+      refreshTokenHash: tokenHash,
+    })
+    .returning({ id: sessions.id });
+  return { id: row!.id, token };
 }
 
 /** Who is behind a request. */

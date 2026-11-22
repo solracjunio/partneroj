@@ -15,6 +15,7 @@ import {
   sessions,
 } from "./schema.js";
 import { hashToken, newToken } from "./tokens.js";
+import { type Device, openSession } from "./sessions.js";
 
 export const INVITE_LIFETIME_HOURS = 24;
 
@@ -123,12 +124,6 @@ export async function previewInvite(
   return row ?? null;
 }
 
-/** The browser that tapped the button, from its User-Agent. */
-export interface Device {
-  device?: string | undefined;
-  browser?: string | undefined;
-}
-
 /**
  * Uses the invite and opens a device session for its member, or returns
  * null when the invite can't be used. The session token goes in the
@@ -151,16 +146,7 @@ export async function acceptInvite(
       .where(eq(sessions.memberId, invite.memberId))
       .limit(1);
 
-    const session = newToken();
-    const [row] = await tx
-      .insert(sessions)
-      .values({
-        memberId: invite.memberId,
-        device: device.device,
-        browser: device.browser,
-        refreshTokenHash: session.tokenHash,
-      })
-      .returning({ id: sessions.id });
+    const session = await openSession(tx, invite.memberId, device);
 
     if (earlier === undefined) {
       await tx.insert(activities).values({
@@ -174,7 +160,7 @@ export async function acceptInvite(
       actorId: invite.memberId,
       action: "invite.accept",
       entityId: invite.id,
-      after: { sessionId: row!.id, device: device.device ?? null },
+      after: { sessionId: session.id, device: device.device ?? null },
     });
 
     return { memberId: invite.memberId, sessionToken: session.token };
