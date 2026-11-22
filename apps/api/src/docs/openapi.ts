@@ -17,8 +17,8 @@ import {
 } from "@partneroj/contracts";
 
 import { SESSION_COOKIE } from "../auth/cookies.js";
+import { accessRoutes } from "./openapi-access.js";
 import {
-  adminsOnly,
   badBody,
   choiceRoutes,
   id,
@@ -70,93 +70,7 @@ export function openApiDocument(): OpenApiDocument {
           responses: { "200": { description: '`{ "status": "ok" }`.' } },
         },
       },
-      "/invites/{token}": {
-        get: {
-          summary: "Preview an invite",
-          description: `Who the invite is for and to which partnership, before accepting it. ${noStore}`,
-          tags: ["Access"],
-          ...open,
-          parameters: [
-            {
-              name: "token",
-              in: "path",
-              required: true,
-              schema: { type: "string" },
-            },
-          ],
-          responses: {
-            "200": { description: "`memberName`, `partnershipName`." },
-            "404": {
-              description:
-                "`invite_not_usable`: unknown, used, revoked or expired.",
-            },
-          },
-        },
-      },
-      "/auth/invites/{token}/accept": {
-        post: {
-          summary: "Accept an invite",
-          description:
-            "Signs in on this device: the answer sets the session cookie. The invite works once.",
-          tags: ["Access"],
-          ...open,
-          parameters: [
-            {
-              name: "token",
-              in: "path",
-              required: true,
-              schema: { type: "string" },
-            },
-          ],
-          responses: {
-            "204": {
-              description: "Signed in; `Set-Cookie` carries the session.",
-            },
-            "404": { description: "`invite_not_usable`." },
-          },
-        },
-      },
-      "/me": {
-        get: {
-          summary: "Who is signed in",
-          description: noStore,
-          tags: ["Access"],
-          responses: {
-            "200": {
-              description: "`memberId`, `partnershipId`, `name`, `role`.",
-            },
-            ...unauthorized,
-          },
-        },
-      },
-      "/members/{memberId}/invites": {
-        post: {
-          summary: "Invite a member",
-          description: `A new one-tap link for a member of the partnership; any pending invite of theirs stops working. The token is shown once. ${noStore}`,
-          tags: ["Access"],
-          parameters: [id("memberId", "A member of the partnership.")],
-          responses: {
-            "201": { description: "`token` and `expiresAt` (24 hours)." },
-            ...unauthorized,
-            ...adminsOnly,
-            "404": { description: "Not a member of the partnership." },
-          },
-        },
-      },
-      "/members/{memberId}/sessions/revoke": {
-        post: {
-          summary: "Sign a member out everywhere",
-          description: "After a lost phone.",
-          tags: ["Access"],
-          parameters: [id("memberId", "A member of the partnership.")],
-          responses: {
-            "200": { description: "`revoked`: how many sessions ended." },
-            ...unauthorized,
-            ...adminsOnly,
-            "404": { description: "Not a member of the partnership." },
-          },
-        },
-      },
+      ...accessRoutes(),
       "/projects/current": {
         get: {
           summary: "The project to record into",

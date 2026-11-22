@@ -38,6 +38,7 @@ export {
   type UnreadCount,
 } from "./feed.js";
 export { formatCents } from "./money.js";
+export { passkeyRegistration, type PasskeyRegistration } from "./passkeys.js";
 export {
   isPushEndpoint,
   pushSubscription,
