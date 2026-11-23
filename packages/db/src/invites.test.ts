@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   acceptInvite,
@@ -18,6 +18,7 @@ import {
   connectAsApp,
   pgErrorCode,
   startTestDatabase,
+  waitForALockWait,
   type AppConnection,
   type TestDatabase,
 } from "./testing.js";
@@ -251,6 +252,31 @@ describe("acceptInvite", () => {
       .from(sessions)
       .where(eq(sessions.memberId, memberId));
     expect(rows).toHaveLength(1);
+  });
+
+  it("waits for a revoke in progress, then refuses its invite", async () => {
+    const { memberId, token } = await rawInvite();
+    let pending: ReturnType<typeof acceptInvite> | undefined;
+    // revokeAccess holds the member first, then ends the pending invites.
+    await t.db.transaction(async (tx) => {
+      await tx
+        .select({ id: members.id })
+        .from(members)
+        .where(eq(members.id, memberId))
+        .for("update");
+      pending = acceptInvite(app.db, token);
+      await waitForALockWait(t);
+      await tx
+        .update(invites)
+        .set({ revokedAt: sql`now()` })
+        .where(eq(invites.memberId, memberId));
+    });
+    expect(await pending).toBeNull();
+    const rows = await t.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.memberId, memberId));
+    expect(rows).toEqual([]);
   });
 
   it("tells the feed only on the member's first session", async () => {

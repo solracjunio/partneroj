@@ -24,6 +24,25 @@ export function liveSession(): SQL {
   )!;
 }
 
+/**
+ * Holds the member's row FOR SHARE until the caller's transaction ends.
+ * Every way in (an invite, a passkey sign-in, a passkey registration)
+ * calls it before checking anything, so it waits for a revokeAccess in
+ * progress and then sees what it revoked (member-access.ts). FOR SHARE,
+ * not FOR UPDATE, so ways in don't block each other: two phones of one
+ * member signing in at once both go on. No test tells the two apart.
+ */
+export async function holdMember(
+  tx: Transaction,
+  memberId: string,
+): Promise<void> {
+  await tx
+    .select({ id: members.id })
+    .from(members)
+    .where(eq(members.id, memberId))
+    .for("share");
+}
+
 /** The browser that signs in, from its User-Agent. */
 export interface Device {
   device?: string | undefined;

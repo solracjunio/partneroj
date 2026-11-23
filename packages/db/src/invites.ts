@@ -15,7 +15,7 @@ import {
   sessions,
 } from "./schema.js";
 import { hashToken, newToken } from "./tokens.js";
-import { type Device, openSession } from "./sessions.js";
+import { type Device, holdMember, openSession } from "./sessions.js";
 
 export const INVITE_LIFETIME_HOURS = 24;
 
@@ -71,7 +71,7 @@ async function insertInvite(
   const replaced = await tx
     .update(invites)
     .set({ revokedAt: sql`now()` })
-    .where(and(eq(invites.memberId, memberId), usable()))
+    .where(and(eq(invites.memberId, memberId), usableInvite()))
     .returning({ id: invites.id });
 
   const { token, tokenHash } = newToken();
@@ -120,7 +120,7 @@ export async function previewInvite(
     .from(invites)
     .innerJoin(members, eq(members.id, invites.memberId))
     .innerJoin(partnerships, eq(partnerships.id, members.partnershipId))
-    .where(and(eq(invites.tokenHash, hashToken(token)), usable()));
+    .where(and(eq(invites.tokenHash, hashToken(token)), usableInvite()));
   return row ?? null;
 }
 
@@ -135,7 +135,16 @@ export async function acceptInvite(
   device: Device = {},
 ): Promise<{ memberId: string; sessionToken: string } | null> {
   return db.transaction(async (tx) => {
-    const invite = await consumeInvite(tx, hashToken(token));
+    const tokenHash = hashToken(token);
+    const [target] = await tx
+      .select({ memberId: invites.memberId })
+      .from(invites)
+      .where(eq(invites.tokenHash, tokenHash));
+    if (target === undefined) return null;
+    // Before the check: a revoke in progress ends this invite first.
+    await holdMember(tx, target.memberId);
+
+    const invite = await consumeInvite(tx, tokenHash);
     if (invite === null) return null;
 
     // The first session of a member is when they joined; a later invite,
@@ -185,7 +194,7 @@ async function consumeInvite(
       and(
         eq(invites.tokenHash, tokenHash),
         eq(members.id, invites.memberId),
-        usable(),
+        usableInvite(),
       ),
     )
     .returning({
@@ -197,7 +206,7 @@ async function consumeInvite(
 }
 
 /** Not used, not revoked and not expired. */
-function usable() {
+export function usableInvite() {
   return and(
     isNull(invites.usedAt),
     isNull(invites.revokedAt),

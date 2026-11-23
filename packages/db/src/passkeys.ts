@@ -12,7 +12,12 @@ import {
   webauthnChallenges,
 } from "./schema.js";
 import { hashToken, newToken } from "./tokens.js";
-import { type Device, openSession } from "./sessions.js";
+import {
+  type Device,
+  holdMember,
+  liveSession,
+  openSession,
+} from "./sessions.js";
 
 /** Long enough to find the fingerprint reader, short enough to be stale soon. */
 export const CHALLENGE_LIFETIME_MINUTES = 5;
@@ -72,10 +77,10 @@ export interface NewCredential {
 /**
  * Saves the passkey of the session's member, using the challenge that the
  * API found signed in the answer. Throws PasskeyRefused when the challenge
- * can't be used (unknown, used, expired, for signing in, or another
- * session's) or the phone's credential id is already saved. Using the
- * challenge and saving the passkey commit together: when the save fails,
- * the challenge is not used up.
+ * can't be used (unknown, used, expired, for signing in, another
+ * session's, or of a session ended since) or the phone's credential id is
+ * already saved. Using the challenge and saving the passkey commit
+ * together: when the save fails, the challenge is not used up.
  */
 export async function registerPasskey(
   db: Database,
@@ -83,6 +88,14 @@ export async function registerPasskey(
 ): Promise<{ id: string }> {
   try {
     return await db.transaction(async (tx) => {
+      const [owner] = await tx
+        .select({ memberId: sessions.memberId })
+        .from(sessions)
+        .where(eq(sessions.id, input.sessionId));
+      if (owner === undefined) throw new PasskeyRefused("challenge-not-usable");
+      // Before the check: a revoke in progress ends this session first.
+      await holdMember(tx, owner.memberId);
+
       // One UPDATE checks and uses the challenge: a second answer with the
       // same challenge waits for this row's lock, then finds it used. Only
       // a challenge to register has a session (check
@@ -100,6 +113,7 @@ export async function registerPasskey(
             // microsecond the challenge expires, which no test can hit.
             gt(webauthnChallenges.expiresAt, sql`now()`),
             eq(sessions.id, webauthnChallenges.sessionId),
+            liveSession(),
           ),
         )
         .returning({ memberId: sessions.memberId });
@@ -222,6 +236,14 @@ export async function signInWithPasskey(
       )
       .returning({ id: webauthnChallenges.id });
     if (used === undefined) throw new PasskeyRefused("challenge-not-usable");
+
+    const [owner] = await tx
+      .select({ memberId: credentials.memberId })
+      .from(credentials)
+      .where(eq(credentials.credentialId, input.credentialId));
+    if (owner === undefined) throw new PasskeyRefused("passkey-not-usable");
+    // Before the check: a revoke in progress ends this passkey first.
+    await holdMember(tx, owner.memberId);
 
     // SimpleWebAuthn compared the counter with the one the API read
     // before; two sign-ins with the same answer's counter both pass that.
