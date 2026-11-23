@@ -108,6 +108,27 @@ it("counts the new activities on the feed's button, which opens it", async () =>
   expect(window.location.pathname).toBe("/atividades");
 });
 
+it("gives an admin the way to the members", async () => {
+  homeServer({ status: 200, body: me("admin") });
+  render(<HomePage />);
+  const link = await screen.findByRole("link", {
+    name: "Membros e convites ▸",
+  });
+  expect(link.getAttribute("href")).toBe("/membros");
+});
+
+it.each([{ role: "partner" as const }, { role: "reader" as const }])(
+  "doesn't show the members to a $role",
+  async ({ role }) => {
+    homeServer({ status: 200, body: me(role) });
+    render(<HomePage />);
+    await screen.findByRole("heading", { name: "Olá, Ana." });
+    expect(
+      screen.queryByRole("link", { name: "Membros e convites ▸" }),
+    ).toBeNull();
+  },
+);
+
 it("keeps the plain button when the count fails", async () => {
   homeServer({ status: 200, body: me("partner") }, "offline");
   render(<HomePage />);

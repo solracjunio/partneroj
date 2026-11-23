@@ -77,6 +77,14 @@ export function HomePage() {
         {balances !== null && (
           <BalanceSummary balances={balances} memberId={me.value.memberId} />
         )}
+        {/* Plan section 5, "Administração": only admins manage access. */}
+        {me.value.role === "admin" && (
+          <p>
+            <a className="entry-link" href="/membros">
+              Membros e convites ▸
+            </a>
+          </p>
+        )}
         <InstallCard />
         <NotificationsCard />
       </section>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { entryLink, inviteLink, matchRoute } from "./routes";
+import { entryLink, inviteLink, matchRoute, memberLink } from "./routes";
 
 const token = "OkusGjZ1yakES04LodPZ3cPKyaMiDC0COzKAQKulFzA";
 
@@ -35,6 +35,20 @@ describe("matchRoute", () => {
       page: "entry",
       id,
     });
+  });
+
+  it("opens the members and one member, and reads back its link", () => {
+    const id = "0196f3a2-7c1e-7b3d-9a4f-2e8c5d6b1a09";
+    expect(matchRoute("/membros")).toEqual({ page: "members" });
+    expect(matchRoute("/membros/")).toEqual({ page: "members" });
+    expect(matchRoute(memberLink(id))).toEqual({ page: "member", id });
+    expect(matchRoute(`/membros/${id}/`)).toEqual({ page: "member", id });
+    expect(matchRoute(`/membros/${id.toUpperCase()}`)).toEqual({
+      page: "member",
+      id,
+    });
+    expect(matchRoute("/membros/abc")).toEqual({ page: "not-found" });
+    expect(matchRoute(`/x/membros/${id}`)).toEqual({ page: "not-found" });
   });
 
   it("finds nothing at an entry link without a valid id", () => {

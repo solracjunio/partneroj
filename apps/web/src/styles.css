@@ -374,3 +374,9 @@ a.entry-link,
   font-weight: 700;
   margin: 4px 0;
 }
+
+/* "Membros": the invite link is one long word; it breaks anywhere. */
+.invite-link {
+  overflow-wrap: anywhere;
+  font-family: monospace;
+}

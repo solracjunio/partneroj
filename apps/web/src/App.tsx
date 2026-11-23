@@ -6,6 +6,7 @@ import { ExpenseForm } from "./ExpenseForm";
 import { FeedPage } from "./FeedPage";
 import { HomePage } from "./HomePage";
 import { InvitePage } from "./InvitePage";
+import { MemberPage, MembersPage } from "./MembersPage";
 import { matchRoute } from "./routes";
 
 export function App() {
@@ -27,6 +28,8 @@ export function App() {
       {route.page === "balances" && <BalancesPage />}
       {route.page === "entry" && <EntryPage key={route.id} id={route.id} />}
       {route.page === "invite" && <InvitePage token={route.token} />}
+      {route.page === "members" && <MembersPage />}
+      {route.page === "member" && <MemberPage key={route.id} id={route.id} />}
       {route.page === "not-found" && (
         <section>
           <h1>Página não encontrada</h1>
