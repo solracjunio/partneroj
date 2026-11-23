@@ -164,17 +164,25 @@ export function accessRoutes(): OpenApiDocument["paths"] {
         },
       },
     },
-    "/members/{memberId}/sessions/revoke": {
+    "/members/{memberId}/access/revoke": {
       post: {
-        summary: "Sign a member out everywhere",
-        description: "After a lost phone.",
+        summary: "Revoke a member's access",
+        description:
+          "After a lost phone: ends the member's sessions, passkeys and pending invite together. Coming back takes a new invite.",
         tags: ["Access"],
         parameters: [id("memberId", "A member of the partnership.")],
         responses: {
-          "200": { description: "`revoked`: how many sessions ended." },
+          "200": {
+            description:
+              "`sessions`, `passkeys` and `invites`: how many of each were still letting the member in.",
+          },
           ...unauthorized,
           ...adminsOnly,
           "404": { description: "Not a member of the partnership." },
+          "409": {
+            description:
+              "`cannot_revoke_self`: an admin's own access is revoked by another admin.",
+          },
         },
       },
     },

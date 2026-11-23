@@ -165,18 +165,36 @@ describe("GET /me", () => {
   });
 });
 
-describe("POST /members/:memberId/sessions/revoke", () => {
-  it("lets an admin end a member's sessions", async () => {
+describe("POST /members/:memberId/access/revoke", () => {
+  it("lets an admin end a member's sessions, passkeys and pending invite", async () => {
     const { admin, partner } = await newPartnership();
     const adminCookie = await signIn(admin.token);
     const partnerCookie = await signIn(partner.token);
+    const invited = await http()
+      .post(`/members/${partner.id}/invites`)
+      .set("Cookie", adminCookie)
+      .expect(201);
+    const newInvite = (invited.body as { token: string }).token;
 
     const response = await http()
-      .post(`/members/${partner.id}/sessions/revoke`)
+      .post(`/members/${partner.id}/access/revoke`)
       .set("Cookie", adminCookie)
       .expect(200);
-    expect(response.body).toEqual({ revoked: 1 });
+    expect(response.body).toEqual({ sessions: 1, passkeys: 0, invites: 1 });
     await http().get("/me").set("Cookie", partnerCookie).expect(401);
+    await http().get(`/invites/${newInvite}`).expect(404);
+  });
+
+  it("refuses an admin's own access", async () => {
+    const { admin } = await newPartnership();
+    const adminCookie = await signIn(admin.token);
+
+    const response = await http()
+      .post(`/members/${admin.id}/access/revoke`)
+      .set("Cookie", adminCookie)
+      .expect(409);
+    expect(response.body).toMatchObject({ message: "cannot_revoke_self" });
+    await http().get("/me").set("Cookie", adminCookie).expect(200);
   });
 
   it("refuses a partner who is not an admin", async () => {
@@ -185,7 +203,7 @@ describe("POST /members/:memberId/sessions/revoke", () => {
     const partnerCookie = await signIn(partner.token);
 
     await http()
-      .post(`/members/${admin.id}/sessions/revoke`)
+      .post(`/members/${admin.id}/access/revoke`)
       .set("Cookie", partnerCookie)
       .expect(403);
     await http().get("/me").set("Cookie", adminCookie).expect(200);
@@ -198,10 +216,28 @@ describe("POST /members/:memberId/sessions/revoke", () => {
     const theirCookie = await signIn(theirs.partner.token);
 
     await http()
-      .post(`/members/${theirs.partner.id}/sessions/revoke`)
+      .post(`/members/${theirs.partner.id}/access/revoke`)
       .set("Cookie", adminCookie)
       .expect(404);
     await http().get("/me").set("Cookie", theirCookie).expect(200);
+  });
+
+  it("answers 404 for an id that is not a uuid", async () => {
+    const { admin } = await newPartnership();
+    const adminCookie = await signIn(admin.token);
+    await http()
+      .post("/members/not-a-uuid/access/revoke")
+      .set("Cookie", adminCookie)
+      .expect(404);
+  });
+
+  it("replaces the route that ended only sessions", async () => {
+    const { admin, partner } = await newPartnership();
+    const adminCookie = await signIn(admin.token);
+    await http()
+      .post(`/members/${partner.id}/sessions/revoke`)
+      .set("Cookie", adminCookie)
+      .expect(404);
   });
 });
 
@@ -229,6 +265,15 @@ describe("POST /members/:memberId/invites", () => {
       .post(`/members/${admin.id}/invites`)
       .set("Cookie", partnerCookie)
       .expect(403);
+  });
+
+  it("answers 404 for an id that is not a uuid", async () => {
+    const { admin } = await newPartnership();
+    const adminCookie = await signIn(admin.token);
+    await http()
+      .post("/members/not-a-uuid/invites")
+      .set("Cookie", adminCookie)
+      .expect(404);
   });
 
   it("can't invite a member of another partnership", async () => {
