@@ -259,6 +259,46 @@ describe("registerPasskey", () => {
     expect(await pending).toBe("challenge-not-usable");
     expect(await credentialsOf(memberId)).toEqual([]);
   });
+
+  it("refuses a session that doesn't exist", async () => {
+    const { challenge, credential } = await ready();
+    expect(
+      await outcome({ sessionId: randomUUID(), challenge, credential }),
+    ).toBe("challenge-not-usable");
+  });
+
+  it("refuses the challenge of a session ended since it was made", async () => {
+    const { memberId, sessionId, challenge, credential } = await ready();
+    await t.db
+      .update(sessions)
+      .set({ revokedAt: sql`now()` })
+      .where(eq(sessions.id, sessionId));
+    expect(await outcome({ sessionId, challenge, credential })).toBe(
+      "challenge-not-usable",
+    );
+    expect(await credentialsOf(memberId)).toEqual([]);
+  });
+
+  it("waits for a revoke in progress, then refuses its session", async () => {
+    const { memberId, sessionId, challenge, credential } = await ready();
+    let pending: Promise<PasskeyRefusal | "saved"> | undefined;
+    // revokeAccess holds the member first, then ends the sessions.
+    await t.db.transaction(async (tx) => {
+      await tx
+        .select({ id: members.id })
+        .from(members)
+        .where(eq(members.id, memberId))
+        .for("update");
+      pending = outcome({ sessionId, challenge, credential });
+      await waitForALockWait(t);
+      await tx
+        .update(sessions)
+        .set({ revokedAt: sql`now()` })
+        .where(eq(sessions.id, sessionId));
+    });
+    expect(await pending).toBe("challenge-not-usable");
+    expect(await credentialsOf(memberId)).toEqual([]);
+  });
 });
 
 describe("activeCredentials", () => {

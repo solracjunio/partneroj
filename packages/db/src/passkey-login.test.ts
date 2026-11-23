@@ -337,6 +337,32 @@ describe("signInWithPasskey", () => {
     expect(await sessionsOf(memberId)).toEqual([]);
     expect((await challengeRow(challenge)).usedAt).toBeNull();
   });
+
+  it("waits for a revoke in progress, then refuses its passkey", async () => {
+    const { memberId, passkey } = await seedPasskey(0);
+    const challenge = await loginChallenge();
+    let pending: Promise<PasskeyRefusal | "in"> | undefined;
+    // revokeAccess holds the member first, then ends the passkeys.
+    await t.db.transaction(async (tx) => {
+      await tx
+        .select({ id: members.id })
+        .from(members)
+        .where(eq(members.id, memberId))
+        .for("update");
+      pending = outcome({
+        challenge,
+        credentialId: passkey.credentialId,
+        counter: 0,
+      });
+      await waitForALockWait(t);
+      await tx
+        .update(credentials)
+        .set({ revokedAt: sql`now()` })
+        .where(eq(credentials.id, passkey.id));
+    });
+    expect(await pending).toBe("passkey-not-usable");
+    expect(await sessionsOf(memberId)).toEqual([]);
+  });
 });
 
 describe("deleteStaleChallenges", () => {
