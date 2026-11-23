@@ -42,6 +42,26 @@ export interface Me {
   hasPasskey: boolean;
 }
 
+/** A member on the admin's "Membros" screen (GET /members). */
+export interface MemberAccess {
+  id: string;
+  name: string;
+  role: Me["role"];
+  /** Phones that still get in. */
+  sessions: number;
+  /** Passkeys not revoked. */
+  passkeys: number;
+  /** The latest use among those phones; null without any. */
+  lastUsedAt: string | null;
+  /** When the pending invite stops working; null without one. */
+  inviteExpiresAt: string | null;
+}
+
+export interface NewInvite {
+  token: string;
+  expiresAt: string;
+}
+
 /**
  * What a call can end in, besides success. "unusable" is the API's 404
  * for an invite (used, expired, replaced or unknown alike); "signed-out"
@@ -106,6 +126,20 @@ export const api = {
     ),
 
   me: () => call("/me", {}, json<Me>),
+
+  /** "Membros": admins only, 403 otherwise. */
+  members: () => call("/members", {}, json<MemberAccess[]>),
+
+  /**
+   * "Gerar convite": a new link for the member, shown once; the member's
+   * pending invite stops working.
+   */
+  inviteMember: (memberId: string) =>
+    call(
+      `/members/${encodeURIComponent(memberId)}/invites`,
+      { method: "POST" },
+      json<NewInvite>,
+    ),
 
   /** The project to record into and the category buttons. */
   currentProject: () => call("/projects/current", {}, json<CurrentProject>),
