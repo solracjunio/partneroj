@@ -37,7 +37,7 @@ export async function createInvite(
 /**
  * Creates an invite as an admin in the app, or returns null when the
  * member is not in the admin's partnership. The filter is in the query,
- * as in revokeSessions: no caller can invite into another partnership by
+ * as in revokeAccess: no caller can invite into another partnership by
  * forgetting a check.
  */
 export async function inviteMember(

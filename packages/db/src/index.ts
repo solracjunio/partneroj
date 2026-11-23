@@ -109,7 +109,6 @@ export * from "./schema.js";
 export {
   type Device,
   findSession,
-  revokeSessions,
   SESSION_IDLE_DAYS,
   type SessionMember,
 } from "./sessions.js";

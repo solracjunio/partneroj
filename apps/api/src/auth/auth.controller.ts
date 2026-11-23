@@ -1,6 +1,7 @@
 import type { ServerResponse } from "node:http";
 
 import {
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
@@ -22,7 +23,8 @@ import {
   type InvitePreview,
   inviteMember,
   previewInvite,
-  revokeSessions,
+  revokeAccess,
+  type RevokedAccess,
   type SessionMember,
 } from "@partneroj/db";
 
@@ -120,22 +122,29 @@ export class SessionsController {
     return invite;
   }
 
-  /** After a lost phone (plan section 2): admins only. */
-  @Post("members/:memberId/sessions/revoke")
+  /**
+   * After a lost phone (plan section 2): admins only. Ends the member's
+   * sessions, passkeys and pending invite together; coming back takes a
+   * new invite. An admin's own access is revoked by another admin.
+   */
+  @Post("members/:memberId/access/revoke")
   @HttpCode(200)
   async revoke(
     @CurrentMember() actor: SessionMember,
     @Param("memberId") memberId: string,
-  ): Promise<{ revoked: number }> {
+  ): Promise<RevokedAccess> {
     if (actor.role !== "admin") throw new ForbiddenException();
     const revoked = isUuid(memberId)
-      ? await revokeSessions(this.db, {
+      ? await revokeAccess(this.db, {
           actorId: actor.memberId,
           partnershipId: actor.partnershipId,
           memberId,
         })
       : null;
     if (revoked === null) throw new NotFoundException();
-    return { revoked };
+    if (revoked === "own-access") {
+      throw new ConflictException("cannot_revoke_self");
+    }
+    return revoked;
   }
 }
