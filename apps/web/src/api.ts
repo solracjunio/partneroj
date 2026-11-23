@@ -57,6 +57,13 @@ export interface MemberAccess {
   inviteExpiresAt: string | null;
 }
 
+/** How many of each "Revogar acesso" ended. */
+export interface RevokedAccess {
+  sessions: number;
+  passkeys: number;
+  invites: number;
+}
+
 export interface NewInvite {
   token: string;
   expiresAt: string;
@@ -68,7 +75,8 @@ export interface NewInvite {
  * is its 401; "refused" is its 403 (a reader, or a member without a
  * weight) and 422 (a project or category that is gone); "unsupported"
  * is its 413 and 415 (a file too big, or one it can't read, like HEIC);
- * "conflict" is its 409 (an entry already undone, or itself an undo);
+ * "conflict" is its 409 (an entry already undone, or itself an undo;
+ * revoking one's own access);
  * "busy" is its 429 (over the limit of the routes of getting in, which
  * passes in a minute); "offline" is no answer at all.
  */
@@ -126,6 +134,17 @@ export const api = {
     ),
 
   me: () => call("/me", {}, json<Me>),
+
+  /**
+   * "Revogar acesso": the member's phones, passkeys and pending invite
+   * stop working. 409 for one's own access.
+   */
+  revokeAccess: (memberId: string) =>
+    call(
+      `/members/${encodeURIComponent(memberId)}/access/revoke`,
+      { method: "POST" },
+      json<RevokedAccess>,
+    ),
 
   /** "Membros": admins only, 403 otherwise. */
   members: () => call("/members", {}, json<MemberAccess[]>),

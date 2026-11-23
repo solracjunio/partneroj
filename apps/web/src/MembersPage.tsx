@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { api, type Failure, type MemberAccess, type NewInvite } from "./api";
 import { accessLine, inviteLine, lastUseLine, roleLabel } from "./members";
+import { RevokeAccess } from "./RevokeAccess";
 import { inviteLink, memberLink } from "./routes";
 
 const loadProblemText: Record<Failure, string> = {
@@ -133,6 +134,19 @@ type InviteState =
 export function MemberPage({ id }: { id: string }) {
   const { members, setMembers, problem, load } = useMembers();
   const [invite, setInvite] = useState<InviteState>({ step: "idle" });
+  // Who is looking: an admin doesn't revoke their own access (another
+  // admin does). Until it is known, or if it fails, no "Revogar".
+  const [meId, setMeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let current = true;
+    void api.me().then((result) => {
+      if (current && result.ok) setMeId(result.value.memberId);
+    });
+    return () => {
+      current = false;
+    };
+  }, []);
   const now = new Date();
   const back = (
     <p>
@@ -185,6 +199,25 @@ export function MemberPage({ id }: { id: string }) {
     );
   }
 
+  function revoked() {
+    // Nothing lets the member in now, and a link on the screen was revoked
+    // with the rest: it goes away, and "Gerar convite" comes back.
+    setInvite({ step: "idle" });
+    setMembers(
+      loaded.map((m) =>
+        m.id === id
+          ? {
+              ...m,
+              sessions: 0,
+              passkeys: 0,
+              lastUsedAt: null,
+              inviteExpiresAt: null,
+            }
+          : m,
+      ),
+    );
+  }
+
   const lastUse = lastUseLine(member, now);
   return (
     <section>
@@ -224,6 +257,19 @@ export function MemberPage({ id }: { id: string }) {
             </p>
           )}
         </div>
+      )}
+
+      {meId !== null && meId !== id && (
+        <RevokeAccess
+          memberId={id}
+          name={member.name}
+          canRevoke={
+            member.sessions > 0 ||
+            member.passkeys > 0 ||
+            member.inviteExpiresAt !== null
+          }
+          onRevoked={revoked}
+        />
       )}
     </section>
   );

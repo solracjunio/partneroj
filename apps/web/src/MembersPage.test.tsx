@@ -46,6 +46,17 @@ const routes = {
 
 function membersServer(members: Answer = { status: 200, body: three() }) {
   return fakeServer({
+    // Ana, an admin, is looking; "Revogar acesso" has its own tests.
+    "GET /api/me": {
+      status: 200,
+      body: {
+        memberId: ids.ana,
+        partnershipId: "01a1c25b-7bf8-7cea-b37d-5194960ba9df",
+        name: "Ana",
+        role: "admin",
+        hasPasskey: true,
+      },
+    },
     [routes.members]: members,
     [routes.invite(ids.caio)]: {
       status: 201,
@@ -251,6 +262,17 @@ describe("Membro", () => {
       body: { token: "T".repeat(43), expiresAt: inAnHour() },
     });
     expect(await screen.findByText(/\/convite\/T+$/)).toBeTruthy();
+  });
+
+  it("tries the member again after no connection", async () => {
+    const server = membersServer();
+    server.next(routes.members, "offline");
+    const user = userEvent.setup();
+    render(<MemberPage id={ids.bruno} />);
+    await user.click(
+      await screen.findByRole("button", { name: "Tentar de novo" }),
+    );
+    expect(await screen.findByRole("heading", { name: "Bruno" })).toBeTruthy();
   });
 
   it("says when the member is not in the partnership", async () => {
