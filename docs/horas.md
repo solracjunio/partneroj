@@ -48,6 +48,7 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 21/11/2026 | 3 | 1,25 h* | Desenho do bloco 3 (passkey descobrível, revogação de sessões e passkeys juntas, isolamento por teste genérico, auditoria visível a todos); tabelas `credentials` e `webauthn_challenges`, com a passkey revogada e nunca apagada e o desafio só por hash (PR #108); desafio de uso único, em 5 minutos, pela sessão que o pediu, consumido na mesma transação que grava a passkey, com teste de corrida (PR #109); mutação à mão em cada PR | Sim |
 | 22/11/2026 | 3 | 1,25 h* | Rotas de cadastro da passkey com SimpleWebAuthn, `hasPasskey` no `/me` e `PUBLIC_URL` obrigatório para a API subir; testes com um autenticador falso que assina com uma chave P-256 de verdade; rotas de entrada da documentação num arquivo próprio (PR #110); deploy conferido de fora; desenho do cartão "Proteja sua conta com a digital" | Sim |
 | 22/11/2026 | 3 | 3,5 h* | Cartão "Proteja sua conta com a digital" no topo da tela inicial (PR #112); entrar com a digital em 5 PRs: `openSession` extraído do convite (PR #113), desafio de login e contador conferidos de novo no `WHERE` depois da trava, com teste de corrida, e limpeza dos desafios velhos (PR #114), rotas de login com o `userHandle` conferido e o autenticador falso assinando de verdade (PR #115), limite de 30 pedidos por minuto por rota e endereço nas rotas públicas, `trust proxy` e limpeza diária no worker (PR #116), botão "Entrar com a digital" e a falha `busy` do 429 em todas as telas (PR #117); deploy conferido de fora (429 no 31º pedido) e teste em dois celulares, com digital e com o PIN do bloqueio; mutação à mão em cada PR | Sim |
+| 23/11/2026 | 3 | 2,0 h* | Limpeza diária dos desafios conferida no log do worker; "Revogar acesso" em 5 PRs: sessões, passkeys e convite pendente revogados juntos, com a linha do membro como trava entre revogar e entrar (`FOR UPDATE` contra `FOR SHARE` nas três entradas), cadastro de passkey recusado para sessão revogada e um teste de corrida por entrada (PR #119), rota única de revogar no lugar da que só encerrava sessões e recusa do próprio acesso com 409 (PR #120), lista de membros com celulares, digital, último uso e convite pendente (PR #121), tela "Membros" com "Gerar convite" para compartilhar ou copiar o link (PR #122), botão "Revogar acesso" com confirmação (PR #123); deploy conferido de fora e teste em dois celulares (revogar, ver o pedido de convite, entrar de novo); mutação à mão em cada PR | Sim |
 
 ## Total por bloco
 
@@ -58,7 +59,7 @@ As linhas marcadas com * foram estimadas pelo log da sessão com o Claude (pausa
 | 1B. Domínio completo | 14 h | 1,5 h |
 | 2A. Persistência dos sócios | 15 h | 3,5 h |
 | 2B. Persistência completa | 8 h | 7,0 h |
-| 3. Autenticação e auditoria | 22 h | 6,0 h |
+| 3. Autenticação e auditoria | 22 h | 8,0 h |
 | Infra de produção | 12 h | 4,25 h |
 | Versão para os sócios | 30 h | 18,25 h |
 | Manutenção (fora do plano) | — | 1,25 h |
