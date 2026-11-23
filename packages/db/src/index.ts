@@ -127,7 +127,12 @@ export {
   type PasskeyRefusal,
   type StoredCredential,
 } from "./passkeys.js";
-export { revokeAccess, type RevokedAccess } from "./member-access.js";
+export {
+  listMemberAccess,
+  type MemberAccess,
+  revokeAccess,
+  type RevokedAccess,
+} from "./member-access.js";
 export { hashToken, newToken } from "./tokens.js";
 export {
   deliveryTarget,

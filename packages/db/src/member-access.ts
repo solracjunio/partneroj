@@ -11,10 +11,11 @@
 // session the way in opened. Without it no order of the UPDATEs works: a
 // sign-in goes passkey → session, a passkey registration session →
 // passkey.
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, count, eq, isNull, max, sql } from "drizzle-orm";
 import type { Database } from "./client.js";
 import { usableInvite } from "./invites.js";
 import { auditLog, credentials, invites, members, sessions } from "./schema.js";
+import { liveSession } from "./sessions.js";
 
 /** How many of each were still letting the member in. */
 export interface RevokedAccess {
@@ -85,4 +86,82 @@ export async function revokeAccess(
       invites: pending.length,
     };
   });
+}
+
+/** A member as the admin's "Membros" screen shows them. */
+export interface MemberAccess {
+  id: string;
+  name: string;
+  role: (typeof members.$inferSelect)["role"];
+  /** Sessions that still let a phone in (liveSession). */
+  sessions: number;
+  /** Passkeys not revoked. */
+  passkeys: number;
+  /** The latest use among those sessions; null without any. */
+  lastUsedAt: Date | null;
+  /** When the pending invite stops working; null without one. */
+  inviteExpiresAt: Date | null;
+}
+
+/**
+ * The partnership's members, oldest first, with what lets each in. Only
+ * reads: three grouped counts joined to the members, so the query costs
+ * the same for any number of phones.
+ */
+export async function listMemberAccess(
+  db: Database,
+  partnershipId: string,
+): Promise<MemberAccess[]> {
+  const live = db
+    .select({
+      memberId: sessions.memberId,
+      count: count().as("session_count"),
+      lastUsedAt: max(sessions.lastUsedAt).as("last_used_at"),
+    })
+    .from(sessions)
+    .where(liveSession())
+    .groupBy(sessions.memberId)
+    .as("live");
+  const passkeys = db
+    .select({
+      memberId: credentials.memberId,
+      count: count().as("passkey_count"),
+    })
+    .from(credentials)
+    .where(isNull(credentials.revokedAt))
+    .groupBy(credentials.memberId)
+    .as("passkeys");
+  // A new invite revokes the pending one (insertInvite), so there is at
+  // most one; max() only makes the join one row per member.
+  const pending = db
+    .select({
+      memberId: invites.memberId,
+      expiresAt: max(invites.expiresAt).as("expires_at"),
+    })
+    .from(invites)
+    .where(usableInvite())
+    .groupBy(invites.memberId)
+    .as("pending");
+
+  return (
+    db
+      .select({
+        id: members.id,
+        name: members.name,
+        role: members.role,
+        sessions: sql<number>`coalesce(${live.count}, 0)`.mapWith(Number),
+        passkeys: sql<number>`coalesce(${passkeys.count}, 0)`.mapWith(Number),
+        lastUsedAt: live.lastUsedAt,
+        inviteExpiresAt: pending.expiresAt,
+      })
+      .from(members)
+      .leftJoin(live, eq(live.memberId, members.id))
+      .leftJoin(passkeys, eq(passkeys.memberId, members.id))
+      .leftJoin(pending, eq(pending.memberId, members.id))
+      .where(eq(members.partnershipId, partnershipId))
+      // As in activeCredentials. The id (uuidv7) breaks the tie between
+      // members created together, who share the transaction's now(); no
+      // test tells this from ordering by the id alone.
+      .orderBy(asc(members.createdAt), asc(members.id))
+  );
 }

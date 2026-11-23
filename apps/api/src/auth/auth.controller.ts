@@ -22,6 +22,8 @@ import {
   type Database,
   type InvitePreview,
   inviteMember,
+  listMemberAccess,
+  type MemberAccess,
   previewInvite,
   revokeAccess,
   type RevokedAccess,
@@ -97,6 +99,16 @@ export class SessionsController {
       role: member.role,
       hasPasskey: passkeys.length > 0,
     };
+  }
+
+  /** The "Membros" screen (plan section 5, "Administração"): admins only. */
+  @Get("members")
+  @Header("Cache-Control", "no-store")
+  async members(
+    @CurrentMember() actor: SessionMember,
+  ): Promise<MemberAccess[]> {
+    if (actor.role !== "admin") throw new ForbiddenException();
+    return listMemberAccess(this.db, actor.partnershipId);
   }
 
   /**
