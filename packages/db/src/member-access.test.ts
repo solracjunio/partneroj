@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { revokeAccess } from "./member-access.js";
+import { listMemberAccess, revokeAccess } from "./member-access.js";
 import {
   auditLog,
   credentials,
@@ -17,6 +17,7 @@ import {
   type AppConnection,
   type TestDatabase,
 } from "./testing.js";
+import { SESSION_IDLE_DAYS } from "./sessions.js";
 
 let t: TestDatabase;
 let app: AppConnection;
@@ -240,5 +241,84 @@ describe("revokeAccess", () => {
 
     expect(await pending).toEqual({ sessions: 1, passkeys: 0, invites: 0 });
     expect((await stillLive(memberId)).sessions).toEqual([]);
+  });
+});
+
+describe("listMemberAccess", () => {
+  it("lists the partnership's members, oldest first, with what lets each in", async () => {
+    const { partnershipId, adminId, memberId } = await seed();
+    const before = new Date(Date.now() - 60_000);
+    const lastWeek = new Date(Date.now() - 7 * 86_400_000);
+    const yesterday = new Date(Date.now() - 86_400_000);
+    await t.db.insert(sessions).values([
+      { memberId, refreshTokenHash: base64url(), lastUsedAt: lastWeek },
+      { memberId, refreshTokenHash: base64url(), lastUsedAt: yesterday },
+      // Neither lets anyone in: one revoked, one idle too long.
+      { memberId, refreshTokenHash: base64url(), revokedAt: before },
+      {
+        memberId,
+        refreshTokenHash: base64url(),
+        lastUsedAt: sql`now() - make_interval(days => ${SESSION_IDLE_DAYS + 1})`,
+      },
+    ]);
+    await t.db.insert(credentials).values([
+      { memberId, credentialId: base64url(), publicKey: base64url() },
+      {
+        memberId,
+        credentialId: base64url(),
+        publicKey: base64url(),
+        revokedAt: before,
+      },
+    ]);
+    const expiresAt = new Date(Math.floor(hours(20).getTime() / 1000) * 1000);
+    await t.db.insert(invites).values([
+      { memberId: adminId, tokenHash: base64url(), expiresAt },
+      {
+        memberId,
+        tokenHash: base64url(),
+        expiresAt: hours(24),
+        usedAt: before,
+      },
+    ]);
+
+    expect(await listMemberAccess(app.db, partnershipId)).toEqual([
+      {
+        id: adminId,
+        name: "João",
+        role: "admin",
+        sessions: 0,
+        passkeys: 0,
+        lastUsedAt: null,
+        inviteExpiresAt: expiresAt,
+      },
+      {
+        id: memberId,
+        name: "Maria",
+        role: "partner",
+        sessions: 2,
+        passkeys: 1,
+        lastUsedAt: yesterday,
+        inviteExpiresAt: null,
+      },
+    ]);
+  });
+
+  it("leaves out an expired invite", async () => {
+    const { partnershipId, memberId } = await seed();
+    await t.db.insert(invites).values({
+      memberId,
+      tokenHash: base64url(),
+      createdAt: sql`now() - interval '2 days'`,
+      expiresAt: sql`now() - interval '1 day'`,
+    });
+    const listed = await listMemberAccess(app.db, partnershipId);
+    expect(listed.find((m) => m.id === memberId)?.inviteExpiresAt).toBeNull();
+  });
+
+  it("lists nobody of another partnership", async () => {
+    const mine = await seed();
+    await seed();
+    const listed = await listMemberAccess(app.db, mine.partnershipId);
+    expect(listed.map((m) => m.id)).toEqual([mine.adminId, mine.memberId]);
   });
 });

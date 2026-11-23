@@ -150,6 +150,21 @@ export function accessRoutes(): OpenApiDocument["paths"] {
         },
       },
     },
+    "/members": {
+      get: {
+        summary: "List the members and their access",
+        description: `The partnership's members, oldest first, for the admin's "Membros" screen. ${noStore}`,
+        tags: ["Access"],
+        responses: {
+          "200": {
+            description:
+              "Each with `id`, `name`, `role`, `sessions` (still letting a phone in), `passkeys` (not revoked), `lastUsedAt` (the latest use among those sessions, or null) and `inviteExpiresAt` (the pending invite, or null).",
+          },
+          ...unauthorized,
+          ...adminsOnly,
+        },
+      },
+    },
     "/members/{memberId}/invites": {
       post: {
         summary: "Invite a member",

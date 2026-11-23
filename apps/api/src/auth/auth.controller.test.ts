@@ -165,6 +165,53 @@ describe("GET /me", () => {
   });
 });
 
+describe("GET /members", () => {
+  it("lists the partnership's members, with what lets each in, to an admin", async () => {
+    const { admin, partner } = await newPartnership();
+    const adminCookie = await signIn(admin.token);
+    await newPartnership("Outra Obra");
+
+    const response = await http()
+      .get("/members")
+      .set("Cookie", adminCookie)
+      .expect(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    const body = response.body as {
+      id: string;
+      sessions: number;
+      lastUsedAt: string | null;
+      inviteExpiresAt: string | null;
+    }[];
+    expect(body.map((m) => m.id)).toEqual([admin.id, partner.id]);
+    expect(body[0]).toMatchObject({
+      name: "João",
+      role: "admin",
+      sessions: 1,
+      passkeys: 0,
+      inviteExpiresAt: null,
+    });
+    expect(body[1]).toMatchObject({
+      name: "Maria",
+      role: "partner",
+      sessions: 0,
+      passkeys: 0,
+      lastUsedAt: null,
+    });
+    expect(Date.parse(body[0]!.lastUsedAt!)).not.toBeNaN();
+    expect(Date.parse(body[1]!.inviteExpiresAt!)).not.toBeNaN();
+  });
+
+  it("refuses a partner who is not an admin", async () => {
+    const { partner } = await newPartnership();
+    const partnerCookie = await signIn(partner.token);
+    await http().get("/members").set("Cookie", partnerCookie).expect(403);
+  });
+
+  it("refuses a request without a session", async () => {
+    await http().get("/members").expect(401);
+  });
+});
+
 describe("POST /members/:memberId/access/revoke", () => {
   it("lets an admin end a member's sessions, passkeys and pending invite", async () => {
     const { admin, partner } = await newPartnership();
