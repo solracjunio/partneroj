@@ -105,6 +105,7 @@ export {
   findReceipt,
   type NewReceipt,
 } from "./receipts.js";
+export { changeRole, type RoleChange } from "./member-roles.js";
 export * from "./schema.js";
 export {
   type Device,
