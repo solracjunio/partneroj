@@ -1,10 +1,16 @@
 // The routes of getting in (plan section 6) for the API documentation:
-// invites, the session and passkeys. Apart from openapi.ts because block 3
-// keeps adding to them; the rest of the document doesn't change with them.
-import { passkeyLogin, passkeyRegistration } from "@partneroj/contracts";
+// invites, the session, passkeys and the members' access and roles. Apart
+// from openapi.ts because block 3 keeps adding to them; the rest of the
+// document doesn't change with them.
+import {
+  passkeyLogin,
+  passkeyRegistration,
+  roleChangeBody,
+} from "@partneroj/contracts";
 
 import {
   adminsOnly,
+  badBody,
   id,
   json,
   noStore,
@@ -197,6 +203,27 @@ export function accessRoutes(): OpenApiDocument["paths"] {
           "409": {
             description:
               "`cannot_revoke_self`: an admin's own access is revoked by another admin.",
+          },
+        },
+      },
+    },
+    "/members/{memberId}/role": {
+      post: {
+        summary: "Change a member's role",
+        description:
+          "Partner to admin or admin to partner: both vote, so an admin does it alone, their own role too. The partnership keeps at least 2 admins. The same role again changes nothing.",
+        tags: ["Access"],
+        parameters: [id("memberId", "A member of the partnership.")],
+        requestBody: json(roleChangeBody),
+        responses: {
+          "204": { description: "Changed, or already that role." },
+          ...badBody,
+          ...unauthorized,
+          ...adminsOnly,
+          "404": { description: "Not a member of the partnership." },
+          "409": {
+            description:
+              "`role_needs_ballot`: the member is a reader, and who votes changes only by a ballot; `too_few_admins`: fewer than 2 admins would be left.",
           },
         },
       },

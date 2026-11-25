@@ -37,6 +37,7 @@ export {
   type MarkRead,
   type UnreadCount,
 } from "./feed.js";
+export { roleChangeBody, type RoleChangeBody } from "./members.js";
 export { formatCents } from "./money.js";
 export {
   passkeyLogin,
