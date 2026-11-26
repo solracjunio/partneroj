@@ -11,6 +11,7 @@ import type {
   RecordedExpense,
   RecordedReversal,
   ReverseEntryBody,
+  RoleChangeBody,
   UnreadCount,
   VapidKey,
 } from "@partneroj/contracts";
@@ -76,7 +77,8 @@ export interface NewInvite {
  * weight) and 422 (a project or category that is gone); "unsupported"
  * is its 413 and 415 (a file too big, or one it can't read, like HEIC);
  * "conflict" is its 409 (an entry already undone, or itself an undo;
- * revoking one's own access);
+ * revoking one's own access; a role change that leaves fewer than 2
+ * admins);
  * "busy" is its 429 (over the limit of the routes of getting in, which
  * passes in a minute); "offline" is no answer at all.
  */
@@ -144,6 +146,21 @@ export const api = {
       `/members/${encodeURIComponent(memberId)}/access/revoke`,
       { method: "POST" },
       json<RevokedAccess>,
+    ),
+
+  /**
+   * "Tornar administrador" and back: admins only. 409 when fewer than 2
+   * admins would be left.
+   */
+  changeRole: (memberId: string, role: RoleChangeBody["role"]) =>
+    call(
+      `/members/${encodeURIComponent(memberId)}/role`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role } satisfies RoleChangeBody),
+      },
+      () => Promise.resolve(undefined),
     ),
 
   /** "Membros": admins only, 403 otherwise. */

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { api, type Failure, type MemberAccess, type NewInvite } from "./api";
 import { accessLine, inviteLine, lastUseLine, roleLabel } from "./members";
+import { ChangeRole } from "./ChangeRole";
 import { RevokeAccess } from "./RevokeAccess";
 import { inviteLink, memberLink } from "./routes";
 
@@ -136,6 +137,9 @@ export function MemberPage({ id }: { id: string }) {
   const [invite, setInvite] = useState<InviteState>({ step: "idle" });
   // Who is looking (AdminActions).
   const [meId, setMeId] = useState<string | null>(null);
+  // An admin who stepped down sees no admin screen: every button on it
+  // would answer 403.
+  const [steppedDown, setSteppedDown] = useState(false);
 
   useEffect(() => {
     let current = true;
@@ -217,6 +221,25 @@ export function MemberPage({ id }: { id: string }) {
     );
   }
 
+  if (steppedDown) {
+    return (
+      <section>
+        <p role="status" className="notice">
+          Você deixou de ser administrador. Agora o seu papel é Sócio.
+        </p>
+        <p>
+          <a href="/">← Voltar ao início</a>
+        </p>
+      </section>
+    );
+  }
+
+  function roleChanged(role: MemberAccess["role"]) {
+    // Only an admin opens this screen: their own change is stepping down.
+    if (id === meId) return setSteppedDown(true);
+    setMembers(loaded.map((m) => (m.id === id ? { ...m, role } : m)));
+  }
+
   const lastUse = lastUseLine(member, now);
   return (
     <section>
@@ -258,37 +281,59 @@ export function MemberPage({ id }: { id: string }) {
         </div>
       )}
 
-      <AdminActions member={member} meId={meId} onRevoked={revoked} />
+      <AdminActions
+        member={member}
+        meId={meId}
+        admins={loaded.filter((m) => m.role === "admin").length}
+        onRoleChanged={roleChanged}
+        onRevoked={revoked}
+      />
     </section>
   );
 }
 
 /**
- * "Revogar acesso", once the screen knows who is looking: an admin
- * doesn't revoke their own access (another admin does). Until /me
- * answers, or if it fails, nothing.
+ * The role and "Revogar acesso", once the screen knows who is looking:
+ * an admin doesn't revoke their own access, and their own role change is
+ * stepping down. Until /me answers, or if it fails, neither.
  */
 function AdminActions({
   member,
   meId,
+  admins,
+  onRoleChanged,
   onRevoked,
 }: {
   member: MemberAccess;
   meId: string | null;
+  admins: number;
+  onRoleChanged: (role: MemberAccess["role"]) => void;
   onRevoked: () => void;
 }) {
-  if (meId === null || meId === member.id) return null;
+  if (meId === null) return null;
   return (
-    <RevokeAccess
-      memberId={member.id}
-      name={member.name}
-      canRevoke={
-        member.sessions > 0 ||
-        member.passkeys > 0 ||
-        member.inviteExpiresAt !== null
-      }
-      onRevoked={onRevoked}
-    />
+    <>
+      <ChangeRole
+        memberId={member.id}
+        name={member.name}
+        role={member.role}
+        isMe={meId === member.id}
+        admins={admins}
+        onChanged={onRoleChanged}
+      />
+      {meId !== member.id && (
+        <RevokeAccess
+          memberId={member.id}
+          name={member.name}
+          canRevoke={
+            member.sessions > 0 ||
+            member.passkeys > 0 ||
+            member.inviteExpiresAt !== null
+          }
+          onRevoked={onRevoked}
+        />
+      )}
+    </>
   );
 }
 
