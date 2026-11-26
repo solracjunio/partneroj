@@ -134,8 +134,7 @@ type InviteState =
 export function MemberPage({ id }: { id: string }) {
   const { members, setMembers, problem, load } = useMembers();
   const [invite, setInvite] = useState<InviteState>({ step: "idle" });
-  // Who is looking: an admin doesn't revoke their own access (another
-  // admin does). Until it is known, or if it fails, no "Revogar".
+  // Who is looking (AdminActions).
   const [meId, setMeId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -259,19 +258,37 @@ export function MemberPage({ id }: { id: string }) {
         </div>
       )}
 
-      {meId !== null && meId !== id && (
-        <RevokeAccess
-          memberId={id}
-          name={member.name}
-          canRevoke={
-            member.sessions > 0 ||
-            member.passkeys > 0 ||
-            member.inviteExpiresAt !== null
-          }
-          onRevoked={revoked}
-        />
-      )}
+      <AdminActions member={member} meId={meId} onRevoked={revoked} />
     </section>
+  );
+}
+
+/**
+ * "Revogar acesso", once the screen knows who is looking: an admin
+ * doesn't revoke their own access (another admin does). Until /me
+ * answers, or if it fails, nothing.
+ */
+function AdminActions({
+  member,
+  meId,
+  onRevoked,
+}: {
+  member: MemberAccess;
+  meId: string | null;
+  onRevoked: () => void;
+}) {
+  if (meId === null || meId === member.id) return null;
+  return (
+    <RevokeAccess
+      memberId={member.id}
+      name={member.name}
+      canRevoke={
+        member.sessions > 0 ||
+        member.passkeys > 0 ||
+        member.inviteExpiresAt !== null
+      }
+      onRevoked={onRevoked}
+    />
   );
 }
 
