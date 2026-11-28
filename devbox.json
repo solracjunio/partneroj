@@ -3,7 +3,8 @@
   "packages": [
     "nodejs@26",
     "pnpm@12",
-    "typescript-language-server@5.3.0"
+    "typescript-language-server@5.3.0",
+    "mcp-language-server@0.1.1"
   ],
   "shell": {
     "scripts": {

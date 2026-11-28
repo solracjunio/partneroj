@@ -6,6 +6,9 @@
 .git
 .devbox
 .claude
+.codex
+AGENTS.md
+CLAUDE.md
 .env
 **/.env
 **/.env.*
