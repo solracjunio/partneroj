@@ -7,7 +7,7 @@ import {
 } from "@partneroj/contracts";
 
 import type { Failure } from "./api";
-import { formatDate } from "./expenseForm";
+import { formatDate } from "./expenseDraft";
 import { formatWhen } from "./feed";
 import { formatCents } from "./money";
 

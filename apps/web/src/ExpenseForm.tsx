@@ -13,7 +13,7 @@ import {
   type ExpenseDraft,
   localDate,
   readDraft,
-} from "./expenseForm";
+} from "./expenseDraft";
 import { navigate } from "./routes";
 
 const problemText: Record<DraftProblem, string> = {
