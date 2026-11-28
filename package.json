@@ -12,7 +12,7 @@
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
-    "coverage": "vitest run --coverage",
+    "coverage": "pnpm --filter \"./packages/*\" build && vitest run --coverage",
     "complexity": "eslint --config eslint.complexity.config.js --format json --output-file reports/complexity/eslint.json apps packages",
     "hotspots": "pnpm complexity && node .github/scripts/hotspots.mjs",
     "quality": "pnpm coverage && pnpm --filter @partneroj/domain mutation && pnpm complexity && node .github/scripts/quality-summary.mjs",
