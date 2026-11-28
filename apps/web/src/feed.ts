@@ -2,7 +2,7 @@
 // API's feed items (plan section 5, "linguagem simples").
 import type { FeedItem } from "@partneroj/contracts";
 
-import { formatDate, localDate } from "./expenseForm";
+import { formatDate, localDate } from "./expenseDraft";
 import { formatCents } from "./money";
 
 export interface FeedText {

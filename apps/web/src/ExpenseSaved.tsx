@@ -3,7 +3,7 @@ import type { RecordedExpense } from "@partneroj/contracts";
 import type { ChangeEvent } from "react";
 
 import type { Upload } from "./ExpenseReceipt";
-import { formatDate } from "./expenseForm";
+import { formatDate } from "./expenseDraft";
 import { formatCents } from "./money";
 import type { ReceiptProblem } from "./receiptPhoto";
 import {
