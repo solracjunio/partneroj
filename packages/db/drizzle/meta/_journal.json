@@ -127,6 +127,13 @@
       "when": 1795292578836,
       "tag": "0017_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795893872222,
+      "tag": "0018_emergency_admin_activity",
+      "breakpoints": true
     }
   ]
 }

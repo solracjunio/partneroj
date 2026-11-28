@@ -9,7 +9,6 @@ import {
   inArray,
   isNull,
   lt,
-  ne,
   sql,
 } from "drizzle-orm";
 import type { Database } from "./client.js";
@@ -26,7 +25,8 @@ export interface FeedRow {
   id: string;
   action: (typeof activities.$inferSelect)["action"];
   createdAt: Date;
-  actor: { id: string; name: string };
+  actor: { id: string; name: string } | null;
+  targetMember: { id: string; name: string } | null;
   unread: boolean;
   entry: {
     id: string;
@@ -50,6 +50,7 @@ export interface FeedPage {
 
 /** The reversal of an entry, if any: the status is derived (ADR 0006). */
 const reversal = aliasedTable(entries, "reversal");
+const target = aliasedTable(members, "target");
 
 /**
  * One page of the feed of the reader's partnership. `before` is the id of
@@ -76,6 +77,8 @@ export async function listFeed(
       createdAt: activities.createdAt,
       actorId: members.id,
       actorName: members.name,
+      targetId: target.id,
+      targetName: target.name,
       readAt: activityReads.readAt,
       entryId: entries.id,
       type: entries.type,
@@ -88,7 +91,8 @@ export async function listFeed(
       reversedBy: reversal.id,
     })
     .from(activities)
-    .innerJoin(members, eq(members.id, activities.actorId))
+    .leftJoin(members, eq(members.id, activities.actorId))
+    .leftJoin(target, eq(target.id, activities.targetMemberId))
     .leftJoin(
       activityReads,
       and(
@@ -130,7 +134,9 @@ export async function listFeed(
     id: r.id,
     action: r.action,
     createdAt: r.createdAt,
-    actor: { id: r.actorId, name: r.actorName },
+    actor: r.actorId === null ? null : { id: r.actorId, name: r.actorName! },
+    targetMember:
+      r.targetId === null ? null : { id: r.targetId, name: r.targetName! },
     // One's own activity is never news to oneself.
     unread: r.readAt === null && r.actorId !== input.memberId,
     entry:
@@ -209,7 +215,7 @@ export async function countUnread(
     .where(
       and(
         eq(activities.partnershipId, input.partnershipId),
-        ne(activities.actorId, input.memberId),
+        sql`${activities.actorId} is distinct from ${input.memberId}`,
         isNull(activityReads.activityId),
       ),
     );

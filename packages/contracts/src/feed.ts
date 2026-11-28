@@ -12,7 +12,11 @@ export type FeedQuery = z.infer<typeof feedQuery>;
 /** How many activities a page brings. */
 export const FEED_PAGE_SIZE = 30;
 
-export type FeedAction = "entry_recorded" | "entry_reversed" | "member_joined";
+export type FeedAction =
+  | "entry_recorded"
+  | "entry_reversed"
+  | "member_joined"
+  | "emergency_admin_created";
 
 /** The entry an activity is about, with its derived status (ADR 0006). */
 export interface FeedEntry {
@@ -37,10 +41,13 @@ export interface FeedItem {
   action: FeedAction;
   /** When it happened, as an ISO timestamp. */
   at: string;
-  actor: { id: string; name: string };
+  /** Null for an action taken by the server. */
+  actor: { id: string; name: string } | null;
+  /** Present for an emergency admin creation. */
+  targetMember?: { id: string; name: string };
   /** Not read yet by whoever asks; one's own activities are never unread. */
   unread: boolean;
-  /** Null for member_joined. */
+  /** Null for activities about members. */
   entry: FeedEntry | null;
 }
 

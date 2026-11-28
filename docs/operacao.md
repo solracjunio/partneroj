@@ -119,11 +119,20 @@ O comando imprime o link `https://<domínio>/convite/<token>`. Ele vale por 24 h
 
 ### Procedimento de emergência
 
-Use quando **os dois administradores** perderam o acesso. Quando só um perdeu, o outro resolve pelo app: revoga as sessões do celular perdido e gera um novo convite. Enquanto a tela de convites não existir, use o `admin-cli` também nesse caso.
+Use quando **nenhum administrador consegue entrar**. Se ainda houver um com acesso, ele resolve pelo app: revoga o acesso perdido e gera um novo convite para o membro existente.
 
-1. `$cli list-members` e anotar o id de um administrador.
-2. `$cli invite <id>` e mandar o link para essa pessoa.
-3. Avisar os outros sócios. A auditoria registra o convite como `invite.create` com autor nulo, e qualquer um pode conferir.
+1. Obtenha o ID da sociedade com `$cli list-members` e rode:
+
+   ```sh
+   $cli emergency-invite --partnership <id da sociedade> --name "<nome do novo administrador>"
+   ```
+
+2. Guarde o ID do novo membro e entregue o link em particular à pessoa convidada. O link vale por 24 h e só pode ser usado uma vez. Se vencer ou se perder, use `$cli invite <id do novo membro>` para substituí-lo. Cada execução de `emergency-invite` cria outro membro.
+3. Depois de entrar, o novo administrador deve revisar e revogar os acessos afetados se houve perda ou roubo de aparelho.
+
+A criação é registrada em **Atividades** e enviada por push aos aparelhos inscritos com sessão ativa na sociedade. O push abre Atividades e não inclui o nome nem o link. A auditoria registra `member.emergency_create` e `invite.create` com autor nulo.
+
+O novo administrador já conta no eleitorado das votações sobre lançamentos abertas depois do comando, mesmo antes de aceitar o convite. Isso importa especialmente em votações por unanimidade. As votações já abertas e os pesos dos projetos não mudam.
 
 ## Comprovantes
 
@@ -435,7 +444,7 @@ grep -q '^VAPID_PUBLIC_KEY=' infra/production/.env || \
 
 ## Avisos: conferir se estão saindo
 
-O caminho de um aviso tem duas filas do pg-boss. O `entry-notification` é gravado na mesma transação do lançamento. O worker o transforma num `push-delivery` **por celular**, e cada um é enviado e repetido sozinho. O worker escreve uma linha por job, só com ids e resultado, nunca nomes ou valores:
+O caminho de um aviso passa por duas filas do pg-boss. O `entry-notification` é gravado na mesma transação do lançamento, e o `emergency-notification`, na mesma transação da criação do administrador. O worker transforma cada aviso num `push-delivery` **por celular**, e cada entrega é enviada e repetida sozinha. O worker escreve uma linha por job, só com ids e resultado, nunca nomes ou valores:
 
 ```sh
 ssh partneroj 'cd ~/partneroj && docker compose -f infra/production/compose.yml logs --since 1h worker'
@@ -444,6 +453,7 @@ ssh partneroj 'cd ~/partneroj && docker compose -f infra/production/compose.yml 
 | Resultado | Quer dizer |
 |---|---|
 | `entry-notification …: N to send` | N celulares a avisar (0: ninguém mais tem os avisos ligados, ou o lançamento tem mais de 24 h) |
+| `emergency-notification …: N to send` | N celulares da sociedade a avisar (0: nenhum aparelho elegível ou atividade com mais de 24 h) |
 | `push-delivery …: sent (201)` | o serviço de push (Google, Mozilla…) aceitou; dali até o celular é com ele. Se o aviso demorar a chegar com `sent` rápido, veja a bateria do navegador no celular ("Sem restrições") |
 | `gone (410)` | o serviço não conhece mais a inscrição (404 ou 410); ela foi apagada, e o sócio precisa tocar em "Ativar avisos" de novo |
 | `refused (403)` | outro erro 4xx, que se repetiria; não é tentado de novo. **403**: a inscrição foi feita com outra chave VAPID (desligar e ativar os avisos de novo naquele celular deve resolver: "Desligar" apaga a inscrição antiga no servidor e no navegador, e "Ativar" cria outra com a chave atual); **413**: aviso grande demais; **400**: pedido inválido |

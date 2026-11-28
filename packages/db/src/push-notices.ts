@@ -4,6 +4,7 @@ import { and, asc, eq, ne } from "drizzle-orm";
 import type { Database } from "./client.js";
 import {
   categories,
+  activities,
   entries,
   members,
   projects,
@@ -57,20 +58,6 @@ export async function entryNotice(
     .where(eq(entries.id, entryId));
   if (row === undefined) return null;
 
-  const phones = await db
-    .select({ id: pushSubscriptions.id })
-    .from(pushSubscriptions)
-    .innerJoin(sessions, eq(sessions.id, pushSubscriptions.sessionId))
-    .innerJoin(members, eq(members.id, sessions.memberId))
-    .where(
-      and(
-        eq(members.partnershipId, row.partnershipId),
-        ne(members.id, row.authorId),
-        liveSession(),
-      ),
-    )
-    .orderBy(asc(pushSubscriptions.id));
-
   return {
     entryId: row.entryId,
     type: row.type,
@@ -81,8 +68,54 @@ export async function entryNotice(
     reversalOf: row.reversalOf,
     reversalReason: row.reversalReason,
     createdAt: row.createdAt,
-    subscriptionIds: phones.map((p) => p.id),
+    subscriptionIds: await subscribedPhones(
+      db,
+      row.partnershipId,
+      row.authorId,
+    ),
   };
+}
+
+/** A server action has no author to exclude from the partnership's phones. */
+export async function emergencyNotice(db: Database, activityId: string) {
+  const [row] = await db
+    .select({
+      partnershipId: activities.partnershipId,
+      createdAt: activities.createdAt,
+    })
+    .from(activities)
+    .where(
+      and(
+        eq(activities.id, activityId),
+        eq(activities.action, "emergency_admin_created"),
+      ),
+    );
+  if (row === undefined) return null;
+  return {
+    createdAt: row.createdAt,
+    subscriptionIds: await subscribedPhones(db, row.partnershipId),
+  };
+}
+
+async function subscribedPhones(
+  db: Database,
+  partnershipId: string,
+  except?: string,
+) {
+  const phones = await db
+    .select({ id: pushSubscriptions.id })
+    .from(pushSubscriptions)
+    .innerJoin(sessions, eq(sessions.id, pushSubscriptions.sessionId))
+    .innerJoin(members, eq(members.id, sessions.memberId))
+    .where(
+      and(
+        eq(members.partnershipId, partnershipId),
+        except === undefined ? undefined : ne(members.id, except),
+        liveSession(),
+      ),
+    )
+    .orderBy(asc(pushSubscriptions.id));
+  return phones.map((p) => p.id);
 }
 
 export interface DeliveryTarget {

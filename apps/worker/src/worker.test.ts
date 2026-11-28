@@ -1,7 +1,9 @@
 import {
   CHALLENGE_CLEANUP_CRON,
   createChallenge,
+  createEmergencyInvite,
   hashToken,
+  listFeed,
   queues,
   type PgBoss,
   startJobQueue,
@@ -38,6 +40,43 @@ afterAll(async () => {
 });
 
 describe("the worker", () => {
+  it("announces emergency admin creation only to live phones of that partnership", async () => {
+    const s = await seed(w);
+    const other = await seed(w);
+    const admin = await subscribedPhone(w, s.maria);
+    const reader = await subscribedPhone(w, s.leo);
+    const revoked = await subscribedPhone(w, s.joao);
+    await subscribedPhone(w, other.leo);
+    await w.t.db.$client.query(
+      "UPDATE sessions SET revoked_at = now() WHERE id = $1",
+      [revoked.sessionId],
+    );
+
+    const { memberId } = await createEmergencyInvite(w.app.db, w.boss, {
+      partnershipId: s.partnershipId,
+      name: "Eva",
+    });
+    const { rows } = await listFeed(w.app.db, {
+      ...s,
+      memberId: s.leo,
+      limit: 5,
+    });
+    const activity = rows.find((row) => row.targetMember?.id === memberId)!;
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2), {
+      timeout: 10_000,
+    });
+    expect(send.mock.calls.map(([target]) => target.endpoint).sort()).toEqual(
+      [admin.endpoint, reader.endpoint].sort(),
+    );
+    for (const [, payload] of send.mock.calls) {
+      expect(JSON.parse(payload)).toMatchObject({
+        tag: activity.id,
+        url: "/atividades",
+      });
+      expect(payload).not.toContain("Eva");
+    }
+  });
+
   it("tells the other phones about an entry within seconds", async () => {
     const s = await seed(w);
     const maria = await subscribedPhone(w, s.maria);

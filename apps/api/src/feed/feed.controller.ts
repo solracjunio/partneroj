@@ -57,6 +57,9 @@ export class FeedController {
         action: row.action,
         at: row.createdAt.toISOString(),
         actor: row.actor,
+        ...(row.targetMember === null
+          ? {}
+          : { targetMember: row.targetMember }),
         unread: row.unread,
         entry:
           row.entry === null

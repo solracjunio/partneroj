@@ -1,7 +1,16 @@
 import type { EntryNotice } from "@partneroj/db";
 import { describe, expect, it } from "vitest";
 
-import { entryMessage } from "./message.js";
+import { emergencyMessage, entryMessage } from "./message.js";
+
+it("sends a generic emergency message that opens Atividades", () => {
+  expect(emergencyMessage("activity-id")).toEqual({
+    title: "Um novo administrador foi criado pelo procedimento de emergência.",
+    body: "Toque para ver em Atividades.",
+    tag: "activity-id",
+    url: "/atividades",
+  });
+});
 
 const entryId = "01a1c25b-7bf8-7cea-b37d-5194960ba97f";
 const undoneId = "01a1c25b-6e0e-789c-be70-3b6100b2b90e";

@@ -1,11 +1,14 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { adminUsage, runAdminCommand } from "./admin-commands.js";
+import { countUnread, listFeed, markFeedRead } from "./feed.js";
 import { previewInvite } from "./invites.js";
+import { installJobQueue, queues, startJobQueue } from "./jobs.js";
 import {
   auditLog,
   categories,
   invites,
+  members,
   partnerships,
   weights,
 } from "./schema.js";
@@ -20,6 +23,7 @@ let t: TestDatabase;
 let app: AppConnection;
 beforeAll(async () => {
   t = await startTestDatabase();
+  await installJobQueue(t.connectionString);
   // As on the server: the commands connect as the app login, not the owner.
   app = await connectAsApp(t);
 });
@@ -42,6 +46,7 @@ async function admin(
   await runAdminCommand(app.db, args, {
     publicUrl,
     print: (line) => lines.push(line),
+    startQueue: () => startJobQueue(app.connectionString, { sendOnly: true }),
   });
   return lines;
 }
@@ -149,6 +154,106 @@ describe("create-partnership", () => {
     );
     expect(message).not.toBe("no error");
     expect(message).not.toBe(adminUsage);
+  });
+});
+
+describe("emergency-invite", () => {
+  it("creates a new admin and an auditable invite that can be replaced", async () => {
+    const p = await partnership("Obra Emergência");
+    const [line, link] = await admin([
+      "emergency-invite",
+      "--partnership",
+      p.id,
+      "--name",
+      "Eva",
+    ]);
+    const id = uuid.exec(line!)![0];
+    const token = link!.split("/").at(-1)!;
+    expect(await previewInvite(app.db, token)).toEqual({
+      memberName: "Eva",
+      partnershipName: "Obra Emergência",
+    });
+    expect(
+      await t.db.select().from(members).where(eq(members.id, id)),
+    ).toMatchObject([{ partnershipId: p.id, role: "admin", name: "Eva" }]);
+    const [invite] = await t.db
+      .select()
+      .from(invites)
+      .where(eq(invites.memberId, id));
+    const audited = await t.db
+      .select()
+      .from(auditLog)
+      .where(and(isNull(auditLog.actorId), eq(auditLog.entityId, id)));
+    expect(audited).toMatchObject([{ action: "member.emergency_create" }]);
+    const inviteAudit = await t.db
+      .select()
+      .from(auditLog)
+      .where(and(isNull(auditLog.actorId), eq(auditLog.entityId, invite!.id)));
+    expect(inviteAudit).toMatchObject([{ action: "invite.create" }]);
+    expect(JSON.stringify([...audited, ...inviteAudit])).not.toContain(token);
+    const reader = { memberId: p.davi, partnershipId: p.id };
+    const {
+      rows: [activity],
+    } = await listFeed(app.db, { ...reader, limit: 5 });
+    expect(activity).toMatchObject({
+      action: "emergency_admin_created",
+      actor: null,
+      entry: null,
+      targetMember: { id, name: "Eva" },
+      unread: true,
+    });
+    expect(await countUnread(app.db, reader)).toBe(1);
+    await markFeedRead(app.db, { ...reader, ids: [activity!.id] });
+    expect(await countUnread(app.db, reader)).toBe(0);
+    const other = await partnership("Outra Sociedade");
+    expect(
+      await listFeed(app.db, {
+        memberId: other.davi,
+        partnershipId: other.id,
+        limit: 5,
+      }),
+    ).toEqual({ rows: [], next: null });
+    const jobs = await t.db.$client.query<{ data: unknown }>(
+      "SELECT data FROM pgboss.job WHERE name = $1 AND data->>'activityId' = $2",
+      [queues.emergencyNotification, activity!.id],
+    );
+    expect(jobs.rows).toEqual([{ data: { activityId: activity!.id } }]);
+    const [replacement] = await admin(["invite", id]);
+    expect(await previewInvite(app.db, token)).toBeNull();
+    expect(
+      await previewInvite(app.db, replacement!.split("/").at(-1)!),
+    ).toMatchObject({ memberName: "Eva" });
+  });
+
+  it("rolls back and prints no link when the notification cannot be queued", async () => {
+    const p = await partnership("Obra Sem Fila");
+    const print = vi.fn();
+    const boss = await startJobQueue(app.connectionString, { sendOnly: true });
+    vi.spyOn(boss, "send").mockRejectedValueOnce(
+      new Error("queue unavailable"),
+    );
+    await expect(
+      runAdminCommand(
+        app.db,
+        ["emergency-invite", "--partnership", p.id, "--name", "Eva"],
+        {
+          publicUrl: "https://partneroj.example",
+          print,
+          startQueue: () => Promise.resolve(boss),
+        },
+      ),
+    ).rejects.toThrow("queue unavailable");
+    expect(print).not.toHaveBeenCalled();
+    const result = await t.db
+      .select()
+      .from(members)
+      .where(eq(members.partnershipId, p.id));
+    expect(result.map((m) => m.id).sort()).toEqual(
+      [p.ana, p.bruno, p.caio, p.davi].sort(),
+    );
+    expect(
+      await countUnread(app.db, { partnershipId: p.id, memberId: p.davi }),
+    ).toBe(0);
   });
 });
 
