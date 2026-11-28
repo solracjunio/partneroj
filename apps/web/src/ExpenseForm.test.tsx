@@ -11,7 +11,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ExpenseForm } from "./ExpenseForm";
-import { localDate } from "./expenseForm";
+import { localDate } from "./expenseDraft";
 import { type Answer, fakeServer, later } from "./testing";
 
 // The contract checks ids as uuids before anything is sent.
