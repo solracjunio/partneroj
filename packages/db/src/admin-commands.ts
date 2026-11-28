@@ -4,7 +4,9 @@
 // change is audited with a null actor, which is how the audit tells a
 // server command from a member.
 import { parseArgs } from "node:util";
+import type { PgBoss } from "pg-boss";
 import type { Database } from "./client.js";
+import { createEmergencyInvite } from "./emergency-invites.js";
 import { createInvite } from "./invites.js";
 import {
   createPartnership,
@@ -21,10 +23,12 @@ import {
 } from "./projects.js";
 
 export interface AdminOutput {
-  /** The site's address, for invite links; only `invite` needs it. */
+  /** The site's address, for invite links. */
   publicUrl: string | undefined;
   /** Where each line of the answer goes: the console, or a test's array. */
   print: (line: string) => void;
+  /** Open the send-only queue connection when an emergency invite needs it. */
+  startQueue: () => Promise<PgBoss>;
 }
 
 export const adminUsage = `Usage:
@@ -34,6 +38,7 @@ export const adminUsage = `Usage:
   admin-cli set-ballot-rule <partnership id> majority|unanimity
   admin-cli list-members
   admin-cli invite <member id>
+  admin-cli emergency-invite --partnership <id> --name <name>
   admin-cli create-project --partnership <id> --name <name> --starts-on <YYYY-MM-DD>
                            [--kind construction|ongoing] --weight <member id>=<n>...
   admin-cli list-projects
@@ -210,6 +215,23 @@ async function addCategoriesCommand(
   print(added.length === 0 ? "nothing new" : `added: ${added.join(", ")}`);
 }
 
+function inviteBaseUrl(publicUrl: string | undefined): string {
+  if (publicUrl === undefined || publicUrl === "") {
+    throw new Error("PUBLIC_URL is not set");
+  }
+  return publicUrl.replace(/\/+$/, "");
+}
+
+function printInvite(
+  print: AdminOutput["print"],
+  baseUrl: string,
+  { token, expiresAt }: { token: string; expiresAt: Date },
+): void {
+  // The token can't be shown again: only its hash is stored.
+  print(`${baseUrl}/convite/${token}`);
+  print(`valid until ${expiresAt.toISOString()}, for one tap`);
+}
+
 /** A new one-tap invite link for a member; the token is shown once. */
 async function inviteCommand(
   db: Database,
@@ -218,17 +240,38 @@ async function inviteCommand(
 ): Promise<void> {
   const [memberId] = rest;
   if (memberId === undefined) throw new Error(adminUsage);
-  if (publicUrl === undefined || publicUrl === "") {
-    throw new Error("PUBLIC_URL is not set");
-  }
-  const baseUrl = publicUrl.replace(/\/+$/, "");
-  const { token, expiresAt } = await createInvite(db, {
+  const baseUrl = inviteBaseUrl(publicUrl);
+  const invite = await createInvite(db, {
     memberId,
     createdBy: null,
   });
-  // The token can't be shown again: only its hash is stored.
-  print(`${baseUrl}/convite/${token}`);
-  print(`valid until ${expiresAt.toISOString()}, for one tap`);
+  printInvite(print, baseUrl, invite);
+}
+
+async function emergencyInviteCommand(
+  db: Database,
+  { publicUrl, print, startQueue }: AdminOutput,
+  rest: string[],
+): Promise<void> {
+  const { values } = parseArgs({
+    args: rest,
+    options: { partnership: { type: "string" }, name: { type: "string" } },
+  });
+  const partnershipId = values.partnership;
+  const name = values.name?.trim();
+  if (!partnershipId || !name) throw new Error(adminUsage);
+  const baseUrl = inviteBaseUrl(publicUrl);
+  const boss = await startQueue();
+  try {
+    const invite = await createEmergencyInvite(db, boss, {
+      partnershipId,
+      name,
+    });
+    print(`member ${invite.memberId}`);
+    printInvite(print, baseUrl, invite);
+  } finally {
+    await boss.stop({ graceful: false });
+  }
 }
 
 /**
@@ -244,6 +287,7 @@ const commands = new Map<string, AdminCommand>([
   ["list-projects", listProjectsCommand],
   ["add-categories", addCategoriesCommand],
   ["invite", inviteCommand],
+  ["emergency-invite", emergencyInviteCommand],
 ]);
 
 export async function runAdminCommand(

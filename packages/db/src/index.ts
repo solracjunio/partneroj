@@ -57,6 +57,7 @@ export {
 } from "./feed.js";
 // The queue's type, so the apps use pg-boss without a second copy of it.
 export type { PgBoss } from "pg-boss";
+export { createEmergencyInvite } from "./emergency-invites.js";
 export {
   CHALLENGE_CLEANUP_CRON,
   installJobQueue,
@@ -64,6 +65,7 @@ export {
   queueOptions,
   queues,
   startJobQueue,
+  type EmergencyNotification,
   type EntryNotification,
   type PushDelivery,
   type Transaction,
@@ -137,6 +139,7 @@ export {
 export { hashToken, newToken } from "./tokens.js";
 export {
   deliveryTarget,
+  emergencyNotice,
   entryNotice,
   forgetSubscription,
   type DeliveryTarget,

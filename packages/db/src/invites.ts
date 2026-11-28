@@ -63,7 +63,7 @@ export async function inviteMember(
  * Revokes the member's invites still pending, so only the newest link
  * works (an old one may still sit in a chat), then inserts the new one.
  */
-async function insertInvite(
+export async function insertInvite(
   tx: Transaction,
   memberId: string,
   createdBy: string | null,

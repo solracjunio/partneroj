@@ -12,6 +12,7 @@ export const queues = {
    * turns it into one push-delivery per phone to tell.
    */
   entryNotification: "entry-notification",
+  emergencyNotification: "emergency-notification",
   /**
    * One push to one phone. Apart from the entry's job, so a failure is
    * retried for that phone alone, and the others are not told twice.
@@ -38,6 +39,14 @@ type QueueName = (typeof queues)[keyof typeof queues];
  * notice's deadline, which the worker checks (24 h, plan section 4).
  * expireInSeconds: a send takes seconds; one stuck longer is retried.
  */
+const fanOutOptions = {
+  retryLimit: 5,
+  retryDelay: 1,
+  retryBackoff: true,
+  retryDelayMax: 30,
+  expireInSeconds: 60,
+};
+
 export const queueOptions: Record<
   QueueName,
   {
@@ -48,13 +57,8 @@ export const queueOptions: Record<
     expireInSeconds: number;
   }
 > = {
-  [queues.entryNotification]: {
-    retryLimit: 5,
-    retryDelay: 1,
-    retryBackoff: true,
-    retryDelayMax: 30,
-    expireInSeconds: 60,
-  },
+  [queues.entryNotification]: fanOutOptions,
+  [queues.emergencyNotification]: fanOutOptions,
   [queues.pushDelivery]: {
     retryLimit: 10,
     retryDelay: 2,
@@ -74,6 +78,10 @@ export const queueOptions: Record<
 
 export interface EntryNotification {
   entryId: string;
+}
+
+export interface EmergencyNotification {
+  activityId: string;
 }
 
 export interface PushDelivery {
@@ -196,4 +204,16 @@ export async function queueEntryNotification(
 ): Promise<void> {
   const data: EntryNotification = { entryId };
   await boss.send(queues.entryNotification, data, { db: fromDrizzle(tx, sql) });
+}
+
+export async function queueEmergencyNotification(
+  boss: PgBoss,
+  tx: Transaction,
+  activityId: string,
+): Promise<void> {
+  const data: EmergencyNotification = { activityId };
+  const id = await boss.send(queues.emergencyNotification, data, {
+    db: fromDrizzle(tx, sql),
+  });
+  if (id === null) throw new Error("emergency notification was not queued");
 }

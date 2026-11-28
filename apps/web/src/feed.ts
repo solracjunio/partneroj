@@ -25,9 +25,16 @@ function reais(cents: string): string {
  * Material."
  */
 export function describeItem(item: FeedItem, meId: string): FeedText {
-  const me = item.actor.id === meId;
-  const who = me ? "Você" : item.actor.name;
   const badges: FeedText["badges"] = item.unread ? ["Novo"] : [];
+  if (item.action === "emergency_admin_created") {
+    return {
+      headline: `Um novo administrador foi criado pelo procedimento de emergência: ${item.targetMember!.name}.`,
+      details: [],
+      badges,
+    };
+  }
+
+  const who = item.actor!.id === meId ? "Você" : item.actor!.name;
   const entry = item.entry;
 
   if (entry === null) {

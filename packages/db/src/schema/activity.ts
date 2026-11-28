@@ -17,6 +17,7 @@ export const activityAction = pgEnum("activity_action", [
   "entry_recorded",
   "entry_reversed",
   "member_joined",
+  "emergency_admin_created",
 ]);
 
 /**
@@ -31,9 +32,8 @@ export const activities = pgTable(
     partnershipId: uuid()
       .notNull()
       .references(() => partnerships.id),
-    actorId: uuid()
-      .notNull()
-      .references(() => members.id),
+    actorId: uuid().references(() => members.id),
+    targetMemberId: uuid().references(() => members.id),
     action: activityAction().notNull(),
     entryId: uuid().references(() => entries.id),
     createdAt: createdAt(),
@@ -44,7 +44,15 @@ export const activities = pgTable(
     index("activities_feed_idx").on(t.partnershipId, t.id.desc()),
     check(
       "activities_entry_reference",
-      sql`(${t.action} = 'member_joined') = (${t.entryId} is null)`,
+      sql`(${t.action} in ('entry_recorded', 'entry_reversed')) = (${t.entryId} is not null)`,
+    ),
+    check(
+      "activities_member_reference",
+      // Compare as text so the new enum value can be added and checked in
+      // the same migration transaction.
+      sql`case when ${t.action}::text = 'emergency_admin_created'
+        then ${t.actorId} is null and ${t.targetMemberId} is not null
+        else ${t.actorId} is not null and ${t.targetMemberId} is null end`,
     ),
   ],
 );

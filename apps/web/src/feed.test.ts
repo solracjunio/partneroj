@@ -99,6 +99,26 @@ describe("describeItem", () => {
       badges: ["Novo"],
     });
   });
+
+  it("names the new admin in the server's emergency activity", () => {
+    expect(
+      describeItem(
+        {
+          ...item({ unread: true }),
+          action: "emergency_admin_created",
+          actor: null,
+          targetMember: { id: "eva", name: "Eva" },
+          entry: null,
+        },
+        "eva",
+      ),
+    ).toEqual({
+      headline:
+        "Um novo administrador foi criado pelo procedimento de emergência: Eva.",
+      details: [],
+      badges: ["Novo"],
+    });
+  });
 });
 
 describe("formatWhen", () => {

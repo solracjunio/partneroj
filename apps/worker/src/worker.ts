@@ -5,6 +5,7 @@ import {
   CHALLENGE_CLEANUP_CRON,
   type Database,
   deleteStaleChallenges,
+  type EmergencyNotification,
   type EntryNotification,
   type PgBoss,
   type PushDelivery,
@@ -17,7 +18,7 @@ import {
   type PushSender,
   RetryablePushError,
 } from "./deliver.js";
-import { fanOut } from "./fan-out.js";
+import { fanOut, fanOutEmergency } from "./fan-out.js";
 
 /**
  * How often each queue is checked, in seconds. A push goes through two
@@ -92,6 +93,19 @@ export async function startWorker(deps: WorkerDeps): Promise<void> {
           fanOut(db, boss, job.data.entryId, new Date()),
         );
         log(`${queues.entryNotification} ${job.id}: ${count} to send`);
+      }
+    },
+  );
+
+  await boss.work<EmergencyNotification>(
+    queues.emergencyNotification,
+    options,
+    async (jobs) => {
+      for (const job of jobs) {
+        const count = await logged(log, queues.emergencyNotification, job, () =>
+          fanOutEmergency(db, boss, job.data.activityId, new Date()),
+        );
+        log(`${queues.emergencyNotification} ${job.id}: ${count} to send`);
       }
     },
   );

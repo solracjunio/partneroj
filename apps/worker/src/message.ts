@@ -4,6 +4,15 @@
 import { formatCents, type PushMessage } from "@partneroj/contracts";
 import type { EntryNotice } from "@partneroj/db";
 
+export function emergencyMessage(activityId: string): PushMessage {
+  return {
+    title: "Um novo administrador foi criado pelo procedimento de emergência.",
+    body: "Toque para ver em Atividades.",
+    tag: activityId,
+    url: "/atividades",
+  };
+}
+
 /** "R$ 1.200,00", also for a reversal, whose amount is negative. */
 function reais(cents: bigint): string {
   const positive = cents < 0n ? -cents : cents;
